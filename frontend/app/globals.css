@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --border: #e2e5ea;
+  --border-strong: #cdd3db;
+  --foreground: #1a2333;
+  --muted: #67728a;
+  --faint: #98a2b3;
+
+  --accent: #7a3b5e;
+  --accent-strong: #5c2c46;
+  --accent-soft: #f6e8ef;
+
+  --status-open-bg: #fdeedd;
+  --status-open-fg: #9a5b12;
+  --status-wait-bg: #e7ecfb;
+  --status-wait-fg: #3d53a6;
+  --status-done-bg: #e3f3ea;
+  --status-done-fg: #1f7a4d;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-status-open-bg: var(--status-open-bg);
+  --color-status-open-fg: var(--status-open-fg);
+  --color-status-wait-bg: var(--status-wait-bg);
+  --color-status-wait-fg: var(--status-wait-fg);
+  --color-status-done-bg: var(--status-done-bg);
+  --color-status-done-fg: var(--status-done-fg);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #10151c;
+    --surface: #161d27;
+    --surface-2: #1c2430;
+    --border: #2a3441;
+    --border-strong: #384252;
+    --foreground: #e7ebf1;
+    --muted: #93a0b4;
+    --faint: #5d6b81;
+
+    --accent: #d68bab;
+    --accent-strong: #e6a8c4;
+    --accent-soft: #33202b;
+
+    --status-open-bg: #3a2a12;
+    --status-open-fg: #f0b562;
+    --status-wait-bg: #1e2a4a;
+    --status-wait-fg: #8fa6f5;
+    --status-done-bg: #173726;
+    --status-done-fg: #5fd895;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), -apple-system, "Segoe UI", system-ui, sans-serif;
+}

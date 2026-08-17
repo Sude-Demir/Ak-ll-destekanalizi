@@ -1,0 +1,17 @@
+# Ortam değişkenleri
+.env
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+
+# Kaggle/Hugging Face'ten indirilen büyük ham veri dosyaları (twcs.csv ~500MB,
+# bitext_responses.csv ~19MB). Sadece scripts/*.py ile üretilen küçük seed
+# CSV'leri (tickets_seed*.csv, kb_seed.csv) commit edilir.
+scripts/data/twcs.csv
+scripts/data/bitext_responses.csv
