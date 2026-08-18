@@ -1,7 +1,7 @@
 import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field
 
 from app.services.confidence import needs_escalation
 
@@ -53,6 +53,17 @@ class DraftStatusUpdate(BaseModel):
     status: Literal["approved", "edited", "rejected"]
     # Sadece status="edited" iken kullanılır: temsilcinin düzenlediği son metin.
     draft_text: str | None = None
+
+
+class PublicTicketCreate(BaseModel):
+    """Herkese açık destek formundan (bkz. app.routers.public) gelen talep
+    verisi. Gerçek müşteriler bir Clerk hesabına sahip değildir, bu yüzden bu
+    şema hiçbir kimlik doğrulaması gerektirmeyen bir uç noktada kullanılır."""
+
+    customer_name: str = Field(min_length=1, max_length=255)
+    customer_email: EmailStr
+    subject: str = Field(min_length=1, max_length=500)
+    body: str = Field(min_length=1)
 
 
 class PostmarkFromFull(BaseModel):

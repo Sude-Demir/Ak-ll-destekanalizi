@@ -88,6 +88,29 @@ export async function generateDraft(ticketId: number, token: string | null): Pro
   return res.json();
 }
 
+export interface PublicTicketSubmission {
+  customer_name: string;
+  customer_email: string;
+  subject: string;
+  body: string;
+}
+
+// Gerçek müşterilerin kullandığı, Clerk oturumu GEREKTİRMEYEN tek uç nokta —
+// bkz. backend/app/routers/public.py. Bilinçli olarak authHeaders kullanmıyor.
+export async function submitPublicTicket(payload: PublicTicketSubmission): Promise<Ticket> {
+  const res = await fetch(`${API_BASE_URL}/public/tickets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Talep gönderilemedi (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
 export async function updateDraftStatus(
   ticketId: number,
   draftId: number,
