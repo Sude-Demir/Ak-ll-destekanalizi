@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     database_url: str
     gemini_api_key: str | None = None
     clerk_secret_key: str | None = None
+    # Postmark'ın gelen e-posta webhook'unu doğrulamak için (Basic Auth).
+    # Webhook URL'sine gömülür: https://<user>:<pass>@.../webhooks/inbound-email
+    webhook_username: str | None = None
+    webhook_password: str | None = None
 
     model_config = SettingsConfigDict(env_file=ROOT_ENV_FILE, env_file_encoding="utf-8")
 

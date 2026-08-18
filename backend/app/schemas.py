@@ -53,3 +53,27 @@ class DraftStatusUpdate(BaseModel):
     status: Literal["approved", "edited", "rejected"]
     # Sadece status="edited" iken kullanılır: temsilcinin düzenlediği son metin.
     draft_text: str | None = None
+
+
+class PostmarkFromFull(BaseModel):
+    """Postmark'ın inbound webhook payload'undaki gönderen bilgisi."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    Email: str
+    Name: str = ""
+
+
+class InboundEmailPayload(BaseModel):
+    """Postmark'ın gelen e-posta webhook'unun gönderdiği JSON — sadece bizim
+    kullandığımız alanlar tanımlı, geri kalanı yok sayılır (Postmark onlarca
+    ek alan gönderir: Attachments, Headers, MessageID vb.).
+    https://postmarkapp.com/developer/webhooks/inbound-webhook
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    From: str
+    FromFull: PostmarkFromFull
+    Subject: str = ""
+    TextBody: str = ""
