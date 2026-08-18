@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import StatusPill from "@/components/StatusPill";
-import { generateDraft, type DraftResponse } from "@/lib/api";
+import { generateDraft, updateDraftStatus, type DraftResponse } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Onay bekliyor",
@@ -23,19 +23,72 @@ function formatDate(isoDate: string): string {
   return new Date(isoDate).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" });
 }
 
-function DraftCard({ draft }: { draft: DraftResponse }) {
+function formatConfidence(score: number | null): string {
+  if (score === null) return "—";
+  return `%${Math.round(score * 100)}`;
+}
+
+function DraftCard({
+  draft,
+  ticketId,
+  onUpdated,
+}: {
+  draft: DraftResponse;
+  ticketId: number;
+  onUpdated: (updated: DraftResponse) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState(draft.draft_text);
+  const [submitting, setSubmitting] = useState<"approved" | "edited" | "rejected" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const isPending = draft.status === "pending";
+
+  async function handleDecision(decision: "approved" | "edited" | "rejected", text?: string) {
+    setSubmitting(decision);
+    setError(null);
+    try {
+      const updated = await updateDraftStatus(ticketId, draft.id, decision, text);
+      onUpdated(updated);
+      setIsEditing(false);
+    } catch {
+      setError("İşlem kaydedilemedi. Backend'in çalıştığından emin olun.");
+    } finally {
+      setSubmitting(null);
+    }
+  }
+
   return (
     <div className="overflow-hidden rounded-xl border border-border border-l-[3px] border-l-accent bg-surface shadow-sm">
-      <div className="flex items-center justify-between bg-accent-soft px-5 py-3">
-        <StatusPill
-          label={STATUS_LABELS[draft.status] ?? draft.status}
-          className={STATUS_STYLES[draft.status] ?? "bg-surface-2 text-muted"}
-        />
-        <span className="text-[12px] tabular-nums text-muted">{formatDate(draft.created_at)}</span>
+      <div className="flex items-center justify-between gap-3 bg-accent-soft px-5 py-3">
+        <div className="flex items-center gap-2">
+          <StatusPill
+            label={STATUS_LABELS[draft.status] ?? draft.status}
+            className={STATUS_STYLES[draft.status] ?? "bg-surface-2 text-muted"}
+          />
+          {isPending && draft.needs_escalation && (
+            <StatusPill label="Dikkatli incele" className="bg-status-open-bg text-status-open-fg" />
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[12px] font-semibold tabular-nums text-muted">
+            Güven: {formatConfidence(draft.confidence_score)}
+          </span>
+          <span className="text-[12px] tabular-nums text-muted">{formatDate(draft.created_at)}</span>
+        </div>
       </div>
 
       <div className="px-5 py-5">
-        <p className="whitespace-pre-wrap text-[14.5px] text-foreground">{draft.draft_text}</p>
+        {isEditing ? (
+          <textarea
+            value={editedText}
+            onChange={(e) => setEditedText(e.target.value)}
+            rows={6}
+            className="w-full rounded-lg border border-border bg-surface-2 p-3 text-[14.5px] text-foreground focus:border-accent focus:outline-none"
+          />
+        ) : (
+          <p className="whitespace-pre-wrap text-[14.5px] text-foreground">{draft.draft_text}</p>
+        )}
 
         {draft.retrieved_context.length > 0 && (
           <div className="mt-4 border-t border-border pt-3.5">
@@ -52,6 +105,58 @@ function DraftCard({ draft }: { draft: DraftResponse }) {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}
+
+        {isPending && (
+          <div className="mt-4 flex items-center gap-2 border-t border-border pt-4">
+            {isEditing ? (
+              <>
+                <button
+                  onClick={() => handleDecision("edited", editedText)}
+                  disabled={submitting !== null || !editedText.trim()}
+                  className="rounded-lg bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {submitting === "edited" ? "Kaydediliyor…" : "Kaydet"}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditedText(draft.draft_text);
+                  }}
+                  disabled={submitting !== null}
+                  className="rounded-lg border border-border px-3.5 py-1.5 text-[13px] font-semibold text-muted hover:bg-surface-2"
+                >
+                  İptal
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleDecision("approved")}
+                  disabled={submitting !== null}
+                  className="rounded-lg bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {submitting === "approved" ? "Onaylanıyor…" : "Onayla"}
+                </button>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  disabled={submitting !== null}
+                  className="rounded-lg border border-border px-3.5 py-1.5 text-[13px] font-semibold text-foreground hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Düzenle
+                </button>
+                <button
+                  onClick={() => handleDecision("rejected")}
+                  disabled={submitting !== null}
+                  className="rounded-lg px-3.5 py-1.5 text-[13px] font-semibold text-muted hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {submitting === "rejected" ? "Reddediliyor…" : "Reddet"}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -85,6 +190,10 @@ export default function DraftPanel({
     }
   }
 
+  function handleDraftUpdated(updated: DraftResponse) {
+    setDrafts((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+  }
+
   return (
     <div className="mt-8">
       <div className="flex items-center justify-between">
@@ -106,7 +215,9 @@ export default function DraftPanel({
             Bu talep için henüz bir taslak yok. Oluşturmak için yukarıdaki butona tıkla.
           </p>
         ) : (
-          drafts.map((draft) => <DraftCard key={draft.id} draft={draft} />)
+          drafts.map((draft) => (
+            <DraftCard key={draft.id} draft={draft} ticketId={ticketId} onUpdated={handleDraftUpdated} />
+          ))
         )}
       </div>
     </div>

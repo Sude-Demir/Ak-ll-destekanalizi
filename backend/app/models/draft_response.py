@@ -19,8 +19,7 @@ class DraftResponse(Base):
     # Taslağın dayandığı SSS parçalarının içerik kopyası (izlenebilirlik için).
     # bkz. app.services.draft_generation.DraftResult.retrieved_context
     retrieved_context: Mapped[list] = mapped_column(JSON)
-    # Hafta 4'te eşik/eskalasyon mantığıyla birlikte asıl anlamını kazanacak;
-    # şimdilik basit bir değerdir.
+    # bkz. app.services.confidence.compute_confidence
     confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="pending", index=True)
     created_at: Mapped[datetime.datetime] = mapped_column(

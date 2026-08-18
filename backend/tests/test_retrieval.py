@@ -72,6 +72,24 @@ def test_retrieve_relevant_chunks_respects_top_k(db_session, sample_chunks):
     assert len(results) == 2
 
 
+def test_retrieve_relevant_chunks_with_distances_orders_closest_first(db_session, sample_chunks):
+    query_vector = _unit_vector(0)  # test_close ile birebir aynı yönde
+    with patch("app.services.retrieval.embed_text", return_value=query_vector):
+        results = retrieval.retrieve_relevant_chunks_with_distances(
+            "herhangi bir soru", db_session, top_k=5
+        )
+
+    # Not: tablo gerçek KB verisiyle de dolu olabileceğinden, sadece en yakın
+    # eşleşmenin test_close olduğunu ve mesafelerin artan sırada geldiğini
+    # kontrol ediyoruz (diğer sıralarda gerçek veriden kayıtlar da olabilir).
+    closest_chunk, closest_distance = results[0]
+    assert closest_chunk.intent == "test_close"
+    assert closest_distance == pytest.approx(0.0, abs=1e-6)  # birebir aynı yön
+
+    distances = [distance for _chunk, distance in results]
+    assert distances == sorted(distances)
+
+
 def test_retrieve_relevant_chunks_ignores_rows_without_embedding(db_session, sample_chunks):
     no_embedding_chunk = KnowledgeBaseChunk(
         category="TEST",

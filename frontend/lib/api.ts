@@ -26,9 +26,12 @@ export interface DraftResponse {
   retrieved_context: RetrievedContextItem[];
   confidence_score: number | null;
   status: string;
+  needs_escalation: boolean;
   created_at: string;
   updated_at: string;
 }
+
+export type DraftDecision = "approved" | "edited" | "rejected";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -67,6 +70,25 @@ export async function generateDraft(ticketId: number): Promise<DraftResponse> {
 
   if (!res.ok) {
     throw new Error(`Taslak oluşturulamadı (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export async function updateDraftStatus(
+  ticketId: number,
+  draftId: number,
+  decision: DraftDecision,
+  draftText?: string
+): Promise<DraftResponse> {
+  const res = await fetch(`${API_BASE_URL}/tickets/${ticketId}/drafts/${draftId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: decision, draft_text: draftText ?? null }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Taslak güncellenemedi (HTTP ${res.status})`);
   }
 
   return res.json();

@@ -19,11 +19,21 @@ def retrieve_relevant_chunks(
 
     embedding'i henüz üretilmemiş (NULL) kayıtlar aramaya dahil edilmez.
     """
+    return [chunk for chunk, _distance in retrieve_relevant_chunks_with_distances(query_text, db, top_k)]
+
+
+def retrieve_relevant_chunks_with_distances(
+    query_text: str, db: Session, top_k: int = DEFAULT_TOP_K
+) -> list[tuple[KnowledgeBaseChunk, float]]:
+    """`retrieve_relevant_chunks` ile aynı aramayı yapar, ama her parçanın yanında
+    pgvector kosinüs mesafesini de döner (bkz. app.services.confidence).
+    """
     query_embedding = embed_text(query_text)
+    distance = KnowledgeBaseChunk.embedding.cosine_distance(query_embedding)
     stmt = (
-        select(KnowledgeBaseChunk)
+        select(KnowledgeBaseChunk, distance)
         .filter(KnowledgeBaseChunk.embedding.is_not(None))
-        .order_by(KnowledgeBaseChunk.embedding.cosine_distance(query_embedding))
+        .order_by(distance)
         .limit(top_k)
     )
-    return list(db.scalars(stmt))
+    return [(chunk, dist) for chunk, dist in db.execute(stmt).all()]

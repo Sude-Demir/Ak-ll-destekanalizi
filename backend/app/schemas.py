@@ -1,6 +1,9 @@
 import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
+
+from app.services.confidence import needs_escalation
 
 
 class TicketRead(BaseModel):
@@ -33,3 +36,20 @@ class DraftResponseRead(BaseModel):
     status: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
+
+    @computed_field
+    @property
+    def needs_escalation(self) -> bool:
+        """Güven skoru eşiğin altındaysa true döner (bkz.
+        app.services.confidence.ESCALATION_THRESHOLD). Skor henüz yoksa
+        (confidence_score=None) temkinli davranıp true döner."""
+        return self.confidence_score is None or needs_escalation(self.confidence_score)
+
+
+class DraftStatusUpdate(BaseModel):
+    """Bir temsilcinin taslak üzerindeki kararı: onayla, düzenleyerek onayla
+    veya reddet (bkz. CLAUDE.md "İnsan onaylı akış")."""
+
+    status: Literal["approved", "edited", "rejected"]
+    # Sadece status="edited" iken kullanılır: temsilcinin düzenlediği son metin.
+    draft_text: str | None = None

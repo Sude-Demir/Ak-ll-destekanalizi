@@ -12,8 +12,9 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.models import KnowledgeBaseChunk, Ticket
+from app.services.confidence import compute_confidence
 from app.services.llm import call_llm
-from app.services.retrieval import DEFAULT_TOP_K, retrieve_relevant_chunks
+from app.services.retrieval import DEFAULT_TOP_K, retrieve_relevant_chunks_with_distances
 
 PROMPT_PATH = Path(__file__).parent / "prompts" / "draft_prompt.txt"
 
@@ -22,11 +23,14 @@ PROMPT_PATH = Path(__file__).parent / "prompts" / "draft_prompt.txt"
 class DraftResult:
     draft_text: str
     retrieved_context: list[dict]  # her taslağın hangi SSS parçalarına dayandığının kaydı
+    confidence_score: float  # bkz. app.services.confidence.compute_confidence
 
 
 def generate_draft(ticket: Ticket, db: Session, top_k: int = DEFAULT_TOP_K) -> DraftResult:
     query_text = f"{ticket.subject}\n{ticket.body}"
-    chunks: list[KnowledgeBaseChunk] = retrieve_relevant_chunks(query_text, db, top_k=top_k)
+    chunks_with_distances = retrieve_relevant_chunks_with_distances(query_text, db, top_k=top_k)
+    chunks: list[KnowledgeBaseChunk] = [chunk for chunk, _distance in chunks_with_distances]
+    confidence_score = compute_confidence([distance for _chunk, distance in chunks_with_distances])
 
     kb_context = "\n\n".join(
         f"SSS {i}:\nSoru: {c.question}\nCevap: {c.answer}" for i, c in enumerate(chunks, start=1)
@@ -51,4 +55,6 @@ def generate_draft(ticket: Ticket, db: Session, top_k: int = DEFAULT_TOP_K) -> D
         for c in chunks
     ]
 
-    return DraftResult(draft_text=draft_text, retrieved_context=retrieved_context)
+    return DraftResult(
+        draft_text=draft_text, retrieved_context=retrieved_context, confidence_score=confidence_score
+    )
