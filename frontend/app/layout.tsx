@@ -1,3 +1,5 @@
+import { ClerkProvider } from "@clerk/nextjs";
+import { trTR } from "@clerk/localizations";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
@@ -21,14 +23,37 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="tr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    <ClerkProvider
+      localization={trTR}
+      afterSignOutUrl="/sign-in"
+      appearance={{
+        variables: {
+          colorPrimary: "var(--accent)",
+          colorBackground: "var(--surface)",
+          colorForeground: "var(--foreground)",
+          colorMutedForeground: "var(--muted)",
+          colorInput: "var(--surface-2)",
+          colorInputForeground: "var(--foreground)",
+          borderRadius: "0.75rem",
+        },
+        elements: {
+          // Kullanıcı menüsündeki "Hesabı yönet" / "Çıkış yap" gibi eylem
+          // butonları varsayılan olarak çok soluk (muted) renk kullanıyor,
+          // koyu zeminde neredeyse okunmuyordu — okunur kontrasta sabitledik.
+          userButtonPopoverActionButton: { color: "var(--foreground)" },
+          userButtonPopoverActionButtonIcon: { color: "var(--foreground)" },
+        },
+      }}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
-        <AppBar />
-        {children}
-      </body>
-    </html>
+      <html
+        lang="tr"
+        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      >
+        <body className="min-h-full flex flex-col bg-background text-foreground">
+          <AppBar />
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

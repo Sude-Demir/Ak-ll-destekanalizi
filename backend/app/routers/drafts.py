@@ -2,13 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import require_auth
 from app.db.database import get_db
 from app.models import DraftResponse, Ticket
 from app.schemas import DraftResponseRead, DraftStatusUpdate
 from app.services.classification import classify_ticket
 from app.services.draft_generation import generate_draft
 
-router = APIRouter(prefix="/tickets", tags=["drafts"])
+router = APIRouter(prefix="/tickets", tags=["drafts"], dependencies=[Depends(require_auth)])
 
 
 @router.post("/{ticket_id}/draft", response_model=DraftResponseRead)

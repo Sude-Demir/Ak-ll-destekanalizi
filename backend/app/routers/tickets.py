@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import require_auth
 from app.db.database import get_db
 from app.models.ticket import Ticket
 from app.schemas import TicketRead
 
-router = APIRouter(prefix="/tickets", tags=["tickets"])
+router = APIRouter(prefix="/tickets", tags=["tickets"], dependencies=[Depends(require_auth)])
 
 
 @router.get("", response_model=list[TicketRead])

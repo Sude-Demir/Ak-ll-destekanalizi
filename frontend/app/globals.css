@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8f4f6;
-  --surface: #ffffff;
-  --surface-2: #f1e8ec;
-  --border: #e3d5dc;
-  --border-strong: #cfb9c4;
-  --foreground: #2b1b23;
-  --muted: #7a5f6a;
-  --faint: #a68a94;
+  --background: #f7f2e7;
+  --surface: #fffdf9;
+  --surface-2: #efe6d3;
+  --border: #e1d6bd;
+  --border-strong: #cabb99;
+  --foreground: #2b2620;
+  --muted: #7c7362;
+  --faint: #a89d85;
 
   --accent: #7a3b5e;
   --accent-strong: #5c2c46;
@@ -20,6 +20,21 @@
   --status-wait-fg: #3d53a6;
   --status-done-bg: #e3f3ea;
   --status-done-fg: #1f7a4d;
+
+  /* Kategori rozetleri için küçük, tekrar eden bir palet (bkz. frontend/lib/categories.ts
+     CATEGORY_COLOR) — 11 kategoriye 11 ayrı renk yerine 6 rengi döngüsel paylaştırıyorlar. */
+  --category-a-bg: #e2f5e7;
+  --category-a-fg: #257a4a;
+  --category-b-bg: #fbe4e2;
+  --category-b-fg: #a4342a;
+  --category-c-bg: #e2ebfb;
+  --category-c-fg: #2f5aa8;
+  --category-d-bg: #ece3fa;
+  --category-d-fg: #6b3fa8;
+  --category-e-bg: #faf0da;
+  --category-e-fg: #97701a;
+  --category-f-bg: #dff4f2;
+  --category-f-fg: #1c7c73;
 }
 
 @theme inline {
@@ -43,20 +58,36 @@
   --color-status-done-bg: var(--status-done-bg);
   --color-status-done-fg: var(--status-done-fg);
 
+  --color-category-a-bg: var(--category-a-bg);
+  --color-category-a-fg: var(--category-a-fg);
+  --color-category-b-bg: var(--category-b-bg);
+  --color-category-b-fg: var(--category-b-fg);
+  --color-category-c-bg: var(--category-c-bg);
+  --color-category-c-fg: var(--category-c-fg);
+  --color-category-d-bg: var(--category-d-bg);
+  --color-category-d-fg: var(--category-d-fg);
+  --color-category-e-bg: var(--category-e-bg);
+  --color-category-e-fg: var(--category-e-fg);
+  --color-category-f-bg: var(--category-f-bg);
+  --color-category-f-fg: var(--category-f-fg);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #170f14;
-    --surface: #201319;
-    --surface-2: #2a1a22;
-    --border: #3b2530;
-    --border-strong: #4c303d;
-    --foreground: #f2e7ec;
-    --muted: #b49aa6;
-    --faint: #7c6570;
+    /* Bej, açık/sıcak bir renk olduğu için koyu moda zorlanınca bulanık bir
+       kahverengiye dönüşüyordu. Koyu mod bilinçli olarak nötr/temiz bir
+       gri-antrasit — bej sadece açık modun kimliği. */
+    --background: #17181a;
+    --surface: #1e1f22;
+    --surface-2: #27282c;
+    --border: #34353a;
+    --border-strong: #45464c;
+    --foreground: #edeef0;
+    --muted: #9b9ca3;
+    --faint: #6c6d73;
 
     --accent: #dd8fae;
     --accent-strong: #eaa8c4;
@@ -68,6 +99,19 @@
     --status-wait-fg: #8fa6f5;
     --status-done-bg: #173726;
     --status-done-fg: #5fd895;
+
+    --category-a-bg: #163526;
+    --category-a-fg: #7ad9a0;
+    --category-b-bg: #3a1d1a;
+    --category-b-fg: #f0968a;
+    --category-c-bg: #1a2740;
+    --category-c-fg: #8fb2f0;
+    --category-d-bg: #2a1f40;
+    --category-d-fg: #c7a8f0;
+    --category-e-bg: #3a2c12;
+    --category-e-fg: #e0b862;
+    --category-f-bg: #12312e;
+    --category-f-fg: #6fd6cb;
   }
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
 import { useState } from "react";
 
 import StatusPill from "@/components/StatusPill";
@@ -37,6 +38,7 @@ function DraftCard({
   ticketId: number;
   onUpdated: (updated: DraftResponse) => void;
 }) {
+  const { getToken } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(draft.draft_text);
   const [submitting, setSubmitting] = useState<"approved" | "edited" | "rejected" | null>(null);
@@ -48,7 +50,8 @@ function DraftCard({
     setSubmitting(decision);
     setError(null);
     try {
-      const updated = await updateDraftStatus(ticketId, draft.id, decision, text);
+      const token = await getToken();
+      const updated = await updateDraftStatus(ticketId, draft.id, decision, token, text);
       onUpdated(updated);
       setIsEditing(false);
     } catch {
@@ -171,6 +174,7 @@ export default function DraftPanel({
   ticketId: number;
   initialDrafts: DraftResponse[];
 }) {
+  const { getToken } = useAuth();
   const [drafts, setDrafts] = useState(initialDrafts);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,7 +183,8 @@ export default function DraftPanel({
     setLoading(true);
     setError(null);
     try {
-      const draft = await generateDraft(ticketId);
+      const token = await getToken();
+      const draft = await generateDraft(ticketId, token);
       setDrafts((prev) => [draft, ...prev]);
     } catch {
       setError(

@@ -1,9 +1,18 @@
+import { Show, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
+
+// bkz. https://clerk.com/changelog/2026-03-03-core-3 — <SignedIn>/<SignedOut>
+// Core 3'te kaldırıldı, yerini <Show when="signed-in|signed-out"> aldı.
+const SIGNED_OUT_FALLBACK = (
+  <Link href="/sign-in" className="text-[13px] font-semibold text-muted hover:text-foreground">
+    Giriş Yap
+  </Link>
+);
 
 export default function AppBar() {
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-surface">
-      <div className="mx-auto flex max-w-6xl items-center gap-2.5 px-6 py-3.5">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-2.5 px-6 py-3.5">
         <Link href="/dashboard" className="flex items-center gap-2.5">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-xs font-extrabold text-white">
             AD
@@ -12,6 +21,10 @@ export default function AppBar() {
             Akıllı Destek
           </span>
         </Link>
+
+        <Show when="signed-in" fallback={SIGNED_OUT_FALLBACK}>
+          <UserButton />
+        </Show>
       </div>
     </header>
   );

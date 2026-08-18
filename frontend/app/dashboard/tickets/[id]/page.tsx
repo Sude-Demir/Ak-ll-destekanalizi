@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -22,10 +23,13 @@ export default async function TicketDetailPage({
     notFound();
   }
 
+  const { getToken } = await auth();
+  const token = await getToken();
+
   let ticket;
   let drafts;
   try {
-    [ticket, drafts] = await Promise.all([fetchTicket(ticketId), fetchDrafts(ticketId)]);
+    [ticket, drafts] = await Promise.all([fetchTicket(ticketId, token), fetchDrafts(ticketId, token)]);
   } catch {
     notFound();
   }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import CategoryBadge from "@/components/CategoryBadge";
 import StatusPill from "@/components/StatusPill";
 import type { Ticket } from "@/lib/api";
 
@@ -19,9 +20,15 @@ function formatDate(isoDate: string): string {
   return new Date(isoDate).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" });
 }
 
-export default function TicketsTable({ tickets }: { tickets: Ticket[] }) {
+export default function TicketsTable({
+  tickets,
+  emptyMessage,
+}: {
+  tickets: Ticket[];
+  emptyMessage?: string;
+}) {
   if (tickets.length === 0) {
-    return <p className="text-muted">Henüz destek talebi bulunmuyor.</p>;
+    return <p className="mt-6 text-muted">{emptyMessage ?? "Henüz destek talebi bulunmuyor."}</p>;
   }
 
   return (
@@ -59,13 +66,7 @@ export default function TicketsTable({ tickets }: { tickets: Ticket[] }) {
                 </div>
               </div>
               <div role="cell">
-                {ticket.category ? (
-                  <span className="inline-block rounded-md border border-border bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">
-                    {ticket.category}
-                  </span>
-                ) : (
-                  <span className="text-[12px] text-faint">—</span>
-                )}
+                <CategoryBadge category={ticket.category} />
               </div>
               <div role="cell" className="text-[12.5px] text-muted">
                 {ticket.channel}

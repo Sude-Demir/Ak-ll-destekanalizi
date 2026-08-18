@@ -35,8 +35,15 @@ export type DraftDecision = "approved" | "edited" | "rejected";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export async function fetchTickets(): Promise<Ticket[]> {
-  const res = await fetch(`${API_BASE_URL}/tickets`, { cache: "no-store" });
+// Backend'in her uç noktası bir Clerk oturumu istiyor (bkz. backend/app/auth.py) —
+// `token`, çağıran taraf server component'te `auth()`'tan, client component'te
+// `useAuth()`'tan alıp buraya iletir.
+function authHeaders(token: string | null): HeadersInit {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function fetchTickets(token: string | null): Promise<Ticket[]> {
+  const res = await fetch(`${API_BASE_URL}/tickets`, { cache: "no-store", headers: authHeaders(token) });
 
   if (!res.ok) {
     throw new Error(`Destek talepleri alınamadı (HTTP ${res.status})`);
@@ -45,8 +52,8 @@ export async function fetchTickets(): Promise<Ticket[]> {
   return res.json();
 }
 
-export async function fetchTicket(id: number): Promise<Ticket> {
-  const res = await fetch(`${API_BASE_URL}/tickets/${id}`, { cache: "no-store" });
+export async function fetchTicket(id: number, token: string | null): Promise<Ticket> {
+  const res = await fetch(`${API_BASE_URL}/tickets/${id}`, { cache: "no-store", headers: authHeaders(token) });
 
   if (!res.ok) {
     throw new Error(`Talep alınamadı (HTTP ${res.status})`);
@@ -55,8 +62,11 @@ export async function fetchTicket(id: number): Promise<Ticket> {
   return res.json();
 }
 
-export async function fetchDrafts(ticketId: number): Promise<DraftResponse[]> {
-  const res = await fetch(`${API_BASE_URL}/tickets/${ticketId}/drafts`, { cache: "no-store" });
+export async function fetchDrafts(ticketId: number, token: string | null): Promise<DraftResponse[]> {
+  const res = await fetch(`${API_BASE_URL}/tickets/${ticketId}/drafts`, {
+    cache: "no-store",
+    headers: authHeaders(token),
+  });
 
   if (!res.ok) {
     throw new Error(`Taslaklar alınamadı (HTTP ${res.status})`);
@@ -65,8 +75,11 @@ export async function fetchDrafts(ticketId: number): Promise<DraftResponse[]> {
   return res.json();
 }
 
-export async function generateDraft(ticketId: number): Promise<DraftResponse> {
-  const res = await fetch(`${API_BASE_URL}/tickets/${ticketId}/draft`, { method: "POST" });
+export async function generateDraft(ticketId: number, token: string | null): Promise<DraftResponse> {
+  const res = await fetch(`${API_BASE_URL}/tickets/${ticketId}/draft`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
 
   if (!res.ok) {
     throw new Error(`Taslak oluşturulamadı (HTTP ${res.status})`);
@@ -79,11 +92,12 @@ export async function updateDraftStatus(
   ticketId: number,
   draftId: number,
   decision: DraftDecision,
+  token: string | null,
   draftText?: string
 ): Promise<DraftResponse> {
   const res = await fetch(`${API_BASE_URL}/tickets/${ticketId}/drafts/${draftId}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
     body: JSON.stringify({ status: decision, draft_text: draftText ?? null }),
   });
 
