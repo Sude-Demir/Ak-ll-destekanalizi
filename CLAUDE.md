@@ -8,7 +8,7 @@ Bu dosya, bu repo üzerinde çalışan Claude Code için proje bağlamını tan�
 
 ## Mevcut Aşama
 
-**Hafta 4 tamamlandı + Hafta 5'in auth kısmı erken bitti (henüz commit'lenmedi).**
+**Hafta 4 tamamlandı (eval seti hariç) + Hafta 5'in auth kısmı erken bitti ve commit'lendi, kullanıcı kendi hesabıyla uçtan uca test etti.**
 
 Tamamlananlar:
 - Hafta 1: uçtan uca "veri gösterme" akışı çalışıyor (FastAPI + Next.js + pgvector'lı Postgres). `tickets` tablosu, gerçek veriyle dolu (Kaggle "Customer Support on Twitter" dataset'inden 300 gerçek müşteri talebi — `scripts/ingest_kaggle_tickets.py`).
@@ -18,12 +18,13 @@ Tamamlananlar:
 - Hafta 4: Güven skoru (`backend/app/services/confidence.py`) — retrieval artık pgvector kosinüs mesafesini de döndürüyor (`retrieve_relevant_chunks_with_distances`), en yakın eşleşmenin benzerliği `confidence_score` olarak kaydediliyor. `ESCALATION_THRESHOLD` (0.5) altındaki taslaklar API yanıtında `needs_escalation=true` ile işaretleniyor (`schemas.py`'de computed field). Onay/düzenleme/red akışı: `PATCH /tickets/{id}/drafts/{draft_id}` (`status`: approved/edited/rejected) — dashboard'da her taslağın altında Onayla/Düzenle/Reddet butonları, düşük güvenli taslaklarda "Dikkatli incele" rozeti.
 - Frontend: `/dashboard/tickets/[id]` detay sayfası — talep bilgisi, kategori, "Taslak Oluştur" butonu, üretilen taslak + dayandığı SSS kaynakları + güven skoru + onay aksiyonları. Tarayıcıda uçtan uca test edildi.
 - Dashboard'a kategori filtre çubuğu (`?category=` URL param'ı), kategori dağılım özeti ve kategoriye özel renk paleti eklendi (`frontend/lib/categories.ts`, `CategoryFilterBar`, `CategoryDistribution`, `CategoryBadge`). Renk paleti bej (açık mod) + nötr gri-antrasit (koyu mod) + `--accent` bordo marka rengi olacak şekilde ayarlandı.
-- 16 birim testi (`backend/tests/`), hepsi geçiyor.
 - **Auth (Hafta 5'ten erken):** Clerk entegre edildi — frontend'de `proxy.ts` (Next.js 16'nın `middleware.ts` yerine geçen adı) `/dashboard` altını girişe kilitliyor, `/sign-in` ve `/sign-up` sayfaları var. Backend'de `backend/app/auth.py`'deki `require_auth` bağımlılığı her iki router'a da uygulandı — `Authorization: Bearer <token>` olmadan `/tickets` ve `/tickets/{id}/draft` uç noktaları 401 dönüyor, `/health` bilinçli olarak açık. Clerk'in "Core 3" sürümü (Mart 2026) `<SignedIn>/<SignedOut>/<Protect>` bileşenlerini kaldırıp `<Show>` ile değiştirmiş — koda bu şekilde yazıldı.
+- **Eval seti altyapısı hazır, gerçek çalıştırma yarına kaldı:** `eval_examples` tablosu (migration `c265df391716`), 300 gerçek talepten 11 kategorinin hepsini kapsayan 34 elle etiketlenmiş örnek (`scripts/build_eval_set.py` — her biri için "doğru cevap ne olmalı" özeti, SSS kapsamı dışı kalan talepler bilinçli dahil edildi). `backend/run_eval.py`, mevcut sınıflandırma+taslak sistemini bu sete karşı çalıştırıp doğruluk raporu üretiyor. **Çalıştırılamadı:** Gemini ücretsiz planının `gemini-2.5-flash` için günlük 20 istek kotası (dakikalık değil, günlük) doldu — 34 örnekten sadece 1'i tamamlandı. Yarın (kota sıfırlanınca) `python run_eval.py` ile tekrar denenecek. Bu arada `backend/app/services/llm.py`'deki `call_llm` artık 429 (RESOURCE_EXHAUSTED) hatasında da yeniden deniyor (öncesinde sadece 503'te deniyordu) — ama bu günlük kota tükenmesini çözmez, sadece geçici dakikalık sınırlarda işe yarar.
+- 19 birim testi (`backend/tests/`), hepsi geçiyor.
 
 Not: `.env`'deki anahtar adı `GEMINI_API_KEY` (önceki `ANTHROPIC_API_KEY` adlandırması hataydı, düzeltildi). `clerk-backend-api` kurulumu `pydantic`'i 2.10.4'ten 2.13.4'e yükseltti, testler bununla uyumlu.
 
-Sırada: Hafta 4'ün geri kalanı — eval seti (gerçek taleplerden elle işaretlenmiş örnekler, prompt/model değişikliklerini bunlara karşı test etmek için). Hafta 5'in geri kalanı — gerçek e-posta/form entegrasyonu, temel analitik. Auth işi bitti ama **henüz commit'lenmedi**, üstelik henüz kullanıcı kendi hesabıyla uçtan uca (giriş → dashboard → taslak oluştur) test etmedi.
+Sırada: Eval script'ini yarın çalıştırıp sonucu değerlendirmek. Sonrası Hafta 5'in geri kalanı — gerçek e-posta/form entegrasyonu, temel analitik.
 
 Roadmap ötesi ürünleşme fikirleri (analytics ekranı, temsilci düzenleme farkının kaydı, multi-tenant kararı) konuşuldu ama henüz uygulanmadı — bkz. proje hafızası `project_urunlesme_fikirleri`.
 

@@ -24,6 +24,11 @@ CHAT_MODEL = "gemini-2.5-flash"
 MAX_RETRIES = 3
 RETRY_BACKOFF_SECONDS = 2
 
+# Ücretsiz katmanda dakikalık istek kotası düşük (gemini-2.5-flash için 5
+# istek/dakika); kota dolunca 429 RESOURCE_EXHAUSTED döner. 503'ten farklı
+# olarak kotanın sıfırlanması dakika bazlı olduğu için daha uzun beklenir.
+RATE_LIMIT_BACKOFF_SECONDS = 20
+
 _client: genai.Client | None = None
 
 
@@ -41,7 +46,7 @@ def call_llm(prompt: str, context: str = "") -> str:
     client = _get_client()
     full_prompt = f"{prompt}\n\n{context}" if context else prompt
 
-    last_error: errors.ServerError | None = None
+    last_error: errors.APIError | None = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             response = client.models.generate_content(model=CHAT_MODEL, contents=full_prompt)
@@ -50,5 +55,11 @@ def call_llm(prompt: str, context: str = "") -> str:
             last_error = e
             if attempt < MAX_RETRIES:
                 time.sleep(RETRY_BACKOFF_SECONDS * attempt)
+        except errors.ClientError as e:
+            last_error = e
+            if e.code == 429 and attempt < MAX_RETRIES:
+                time.sleep(RATE_LIMIT_BACKOFF_SECONDS)
+            else:
+                raise
 
     raise last_error
