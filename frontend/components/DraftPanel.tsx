@@ -4,13 +4,15 @@ import { useAuth } from "@clerk/nextjs";
 import { useState } from "react";
 
 import StatusPill from "@/components/StatusPill";
+import { useLocale } from "@/components/LocaleProvider";
 import { generateDraft, updateDraftStatus, type DraftResponse } from "@/lib/api";
+import { formatDate, formatPercent, type Locale, type TranslationKey } from "@/lib/i18n";
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Onay bekliyor",
-  approved: "Onaylandı",
-  edited: "Düzenlendi",
-  rejected: "Reddedildi",
+const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
+  pending: "draftPanel.statusPending",
+  approved: "draftPanel.statusApproved",
+  edited: "draftPanel.statusEdited",
+  rejected: "draftPanel.statusRejected",
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -20,13 +22,9 @@ const STATUS_STYLES: Record<string, string> = {
   rejected: "bg-surface-2 text-muted",
 };
 
-function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" });
-}
-
-function formatConfidence(score: number | null): string {
+function formatConfidence(score: number | null, locale: Locale): string {
   if (score === null) return "—";
-  return `%${Math.round(score * 100)}`;
+  return formatPercent(score, locale);
 }
 
 function DraftCard({
@@ -39,6 +37,7 @@ function DraftCard({
   onUpdated: (updated: DraftResponse) => void;
 }) {
   const { getToken } = useAuth();
+  const { locale, t } = useLocale();
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(draft.draft_text);
   const [submitting, setSubmitting] = useState<"approved" | "edited" | "rejected" | null>(null);
@@ -55,7 +54,7 @@ function DraftCard({
       onUpdated(updated);
       setIsEditing(false);
     } catch {
-      setError("İşlem kaydedilemedi. Backend'in çalıştığından emin olun.");
+      setError(t("draftPanel.saveError"));
     } finally {
       setSubmitting(null);
     }
@@ -66,18 +65,18 @@ function DraftCard({
       <div className="flex items-center justify-between gap-3 bg-accent-soft px-5 py-3">
         <div className="flex items-center gap-2">
           <StatusPill
-            label={STATUS_LABELS[draft.status] ?? draft.status}
+            label={STATUS_LABEL_KEYS[draft.status] ? t(STATUS_LABEL_KEYS[draft.status]) : draft.status}
             className={STATUS_STYLES[draft.status] ?? "bg-surface-2 text-muted"}
           />
           {isPending && draft.needs_escalation && (
-            <StatusPill label="Dikkatli incele" className="bg-status-open-bg text-status-open-fg" />
+            <StatusPill label={t("draftPanel.needsAttention")} className="bg-status-open-bg text-status-open-fg" />
           )}
         </div>
         <div className="flex items-center gap-3">
           <span className="text-[12px] font-semibold tabular-nums text-muted">
-            Güven: {formatConfidence(draft.confidence_score)}
+            {t("draftPanel.confidence")}: {formatConfidence(draft.confidence_score, locale)}
           </span>
-          <span className="text-[12px] tabular-nums text-muted">{formatDate(draft.created_at)}</span>
+          <span className="text-[12px] tabular-nums text-muted">{formatDate(draft.created_at, locale)}</span>
         </div>
       </div>
 
@@ -96,7 +95,7 @@ function DraftCard({
         {draft.retrieved_context.length > 0 && (
           <div className="mt-4 border-t border-border pt-3.5">
             <p className="text-[11.5px] font-bold tracking-wide text-faint uppercase">
-              Bu taslak şu SSS içeriklerine dayanıyor
+              {t("draftPanel.sourcesHeading")}
             </p>
             <ul className="mt-2.5 divide-y divide-border">
               {draft.retrieved_context.map((item) => (
@@ -122,7 +121,7 @@ function DraftCard({
                   disabled={submitting !== null || !editedText.trim()}
                   className="rounded-lg bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {submitting === "edited" ? "Kaydediliyor…" : "Kaydet"}
+                  {submitting === "edited" ? t("draftPanel.saving") : t("draftPanel.save")}
                 </button>
                 <button
                   onClick={() => {
@@ -132,7 +131,7 @@ function DraftCard({
                   disabled={submitting !== null}
                   className="rounded-lg border border-border px-3.5 py-1.5 text-[13px] font-semibold text-muted hover:bg-surface-2"
                 >
-                  İptal
+                  {t("draftPanel.cancel")}
                 </button>
               </>
             ) : (
@@ -142,21 +141,21 @@ function DraftCard({
                   disabled={submitting !== null}
                   className="rounded-lg bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {submitting === "approved" ? "Onaylanıyor…" : "Onayla"}
+                  {submitting === "approved" ? t("draftPanel.approving") : t("draftPanel.approve")}
                 </button>
                 <button
                   onClick={() => setIsEditing(true)}
                   disabled={submitting !== null}
                   className="rounded-lg border border-border px-3.5 py-1.5 text-[13px] font-semibold text-foreground hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Düzenle
+                  {t("draftPanel.edit")}
                 </button>
                 <button
                   onClick={() => handleDecision("rejected")}
                   disabled={submitting !== null}
                   className="rounded-lg px-3.5 py-1.5 text-[13px] font-semibold text-muted hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {submitting === "rejected" ? "Reddediliyor…" : "Reddet"}
+                  {submitting === "rejected" ? t("draftPanel.rejecting") : t("draftPanel.reject")}
                 </button>
               </>
             )}
@@ -175,6 +174,7 @@ export default function DraftPanel({
   initialDrafts: DraftResponse[];
 }) {
   const { getToken } = useAuth();
+  const { t } = useLocale();
   const [drafts, setDrafts] = useState(initialDrafts);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -187,9 +187,7 @@ export default function DraftPanel({
       const draft = await generateDraft(ticketId, token);
       setDrafts((prev) => [draft, ...prev]);
     } catch {
-      setError(
-        "Taslak oluşturulamadı. Backend'in çalıştığından ve Gemini API anahtarının geçerli olduğundan emin olun."
-      );
+      setError(t("draftPanel.generateError"));
     } finally {
       setLoading(false);
     }
@@ -202,13 +200,13 @@ export default function DraftPanel({
   return (
     <div className="mt-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-[16px] font-bold tracking-tight text-foreground">Yanıt Taslakları</h2>
+        <h2 className="text-[16px] font-bold tracking-tight text-foreground">{t("draftPanel.heading")}</h2>
         <button
           onClick={handleGenerate}
           disabled={loading}
           className="rounded-lg bg-accent px-4 py-2 text-[13.5px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Oluşturuluyor…" : "Taslak Oluştur"}
+          {loading ? t("draftPanel.generating") : t("draftPanel.generate")}
         </button>
       </div>
 
@@ -216,9 +214,7 @@ export default function DraftPanel({
 
       <div className="mt-4 space-y-4">
         {drafts.length === 0 ? (
-          <p className="text-[13.5px] text-muted">
-            Bu talep için henüz bir taslak yok. Oluşturmak için yukarıdaki butona tıkla.
-          </p>
+          <p className="text-[13.5px] text-muted">{t("draftPanel.empty")}</p>
         ) : (
           drafts.map((draft) => (
             <DraftCard key={draft.id} draft={draft} ticketId={ticketId} onUpdated={handleDraftUpdated} />

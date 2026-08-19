@@ -1,6 +1,14 @@
-export default function DashboardLoading() {
+import { t } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
+
+export default async function DashboardLoading() {
+  const locale = await getLocale();
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10" aria-busy="true" aria-label="Destek talepleri yükleniyor">
+    <main
+      className="mx-auto max-w-6xl px-6 py-10"
+      aria-busy="true"
+      aria-label={t(locale, "dashboard.loadingAriaLabel")}
+    >
       <div className="h-[22px] w-56 animate-pulse rounded-md bg-surface-2" />
       <div className="mt-2 h-[13.5px] w-96 animate-pulse rounded-md bg-surface-2" />
 

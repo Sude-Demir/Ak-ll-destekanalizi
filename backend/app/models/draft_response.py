@@ -5,6 +5,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
 
+# Bir taslağın "cevaplandı" sayılması için müşteri onaylı (approved) ya da
+# temsilci düzenleyip onaylamış (edited) olması gerekir — pending/rejected
+# asla cevaplandı sayılmaz (bkz. CLAUDE.md "İnsan onaylı akış"). Bu sabit,
+# app.routers.me ve app.routers.tickets arasında paylaşılır.
+ANSWERED_DRAFT_STATUSES = ("approved", "edited")
+
 
 class DraftResponse(Base):
     """Bir talep için AI tarafından üretilen, bir temsilcinin onayını bekleyen

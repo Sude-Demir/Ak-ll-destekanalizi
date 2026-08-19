@@ -20,6 +20,10 @@ class Ticket(Base):
     # Hafta 3'te sınıflandırma servisi tarafından doldurulacak; şimdilik boş kalabilir.
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="open", index=True)
+    # Talebi giriş yapmış bir müşteri portalından (bkz. app.routers.me) gönderdiyse
+    # Clerk kullanıcı kimliği burada tutulur — "kendi taleplerim" sorgusu için.
+    # Anonim /support formundan veya e-posta webhook'undan gelen taleplerde NULL kalır.
+    submitted_by_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )

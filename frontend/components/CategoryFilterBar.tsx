@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import type { Ticket } from "@/lib/api";
 import { categoryColorClasses, countsByFixedCategoryOrder } from "@/lib/categories";
+import { t } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 
 // "Tümü" bir kategori değil, uygulamanın kendi marka vurgusunu (bordo) kullanır.
 const ALL_ACTIVE_CLASSES = "border-accent bg-accent text-white";
@@ -51,21 +53,22 @@ function FilterChip({
  * linki paylaştığında filtre korunur. Sayılar her zaman filtrelenmemiş tam
  * listeden hesaplanır (aktif filtreye göre değişmez), böylece kullanıcı diğer
  * kategorilerde kaç talep olduğunu görebilir. */
-export default function CategoryFilterBar({
+export default async function CategoryFilterBar({
   tickets,
   activeCategory,
 }: {
   tickets: Ticket[];
   activeCategory: string | null;
 }) {
-  const counts = countsByFixedCategoryOrder(tickets);
+  const locale = await getLocale();
+  const counts = countsByFixedCategoryOrder(tickets, locale);
 
   return (
-    <nav aria-label="Kategoriye göre filtrele" className="mt-6">
+    <nav aria-label={t(locale, "categoryFilter.ariaLabel")} className="mt-6">
       <div role="group" className="flex gap-2 overflow-x-auto pb-1.5">
         <FilterChip
           href="/dashboard"
-          label="Tümü"
+          label={t(locale, "categoryFilter.all")}
           count={tickets.length}
           active={activeCategory === null}
           category={null}

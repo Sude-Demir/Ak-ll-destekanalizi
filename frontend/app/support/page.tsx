@@ -2,9 +2,11 @@
 
 import { useId, useState } from "react";
 
+import { useLocale } from "@/components/LocaleProvider";
 import { submitPublicTicket } from "@/lib/api";
 
 export default function SupportPage() {
+  const { t } = useLocale();
   const nameId = useId();
   const emailId = useId();
   const subjectId = useId();
@@ -27,7 +29,7 @@ export default function SupportPage() {
       const ticket = await submitPublicTicket({ customer_name: customerName, customer_email: customerEmail, subject, body });
       setSubmittedTicketId(ticket.id);
     } catch {
-      setError("Talebiniz gönderilemedi. Lütfen birkaç dakika sonra tekrar deneyin.");
+      setError(t("support.error"));
     } finally {
       setSubmitting(false);
     }
@@ -37,10 +39,11 @@ export default function SupportPage() {
     return (
       <main className="mx-auto max-w-xl px-6 py-16">
         <div className="rounded-xl border border-border bg-surface p-8 text-center shadow-sm">
-          <h1 className="text-[19px] font-bold tracking-tight text-foreground">Talebiniz alındı</h1>
+          <h1 className="text-[19px] font-bold tracking-tight text-foreground">{t("support.successTitle")}</h1>
           <p className="mt-2 text-[14px] text-muted">
-            Talep numaranız <span className="font-semibold text-foreground">#{submittedTicketId}</span>. Ekibimiz en
-            kısa sürede size dönüş yapacak.
+            {t("support.successBodyPrefix")}
+            <span className="font-semibold text-foreground">{submittedTicketId}</span>
+            {t("support.successBodySuffix")}
           </p>
         </div>
       </main>
@@ -49,15 +52,13 @@ export default function SupportPage() {
 
   return (
     <main className="mx-auto max-w-xl px-6 py-16">
-      <h1 className="text-[22px] font-bold tracking-tight text-foreground">Bize Ulaşın</h1>
-      <p className="mt-1 text-[13.5px] text-muted">
-        Bir sorunuz veya sorununuz mu var? Aşağıdaki formu doldurun, destek ekibimiz size dönüş yapsın.
-      </p>
+      <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("support.heading")}</h1>
+      <p className="mt-1 text-[13.5px] text-muted">{t("support.subtitle")}</p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-xl border border-border bg-surface p-6 shadow-sm">
         <div>
           <label htmlFor={nameId} className="text-[13px] font-semibold text-foreground">
-            Ad Soyad
+            {t("support.name")}
           </label>
           <input
             id={nameId}
@@ -71,7 +72,7 @@ export default function SupportPage() {
 
         <div>
           <label htmlFor={emailId} className="text-[13px] font-semibold text-foreground">
-            E-posta
+            {t("support.email")}
           </label>
           <input
             id={emailId}
@@ -85,7 +86,7 @@ export default function SupportPage() {
 
         <div>
           <label htmlFor={subjectId} className="text-[13px] font-semibold text-foreground">
-            Konu
+            {t("support.subject")}
           </label>
           <input
             id={subjectId}
@@ -99,7 +100,7 @@ export default function SupportPage() {
 
         <div>
           <label htmlFor={bodyId} className="text-[13px] font-semibold text-foreground">
-            Mesajınız
+            {t("support.body")}
           </label>
           <textarea
             id={bodyId}
@@ -118,7 +119,7 @@ export default function SupportPage() {
           disabled={submitting}
           className="w-full rounded-lg bg-accent px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? "Gönderiliyor…" : "Talebi Gönder"}
+          {submitting ? t("support.submitting") : t("support.submit")}
         </button>
       </form>
     </main>

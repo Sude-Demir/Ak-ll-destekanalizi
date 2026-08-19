@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import drafts, public, tickets, webhooks
+from app.routers import agent_invites, drafts, me, public, tickets, webhooks
 
 app = FastAPI(title="Akıllı Destek Asistanı API")
 
@@ -16,6 +16,8 @@ app.include_router(tickets.router)
 app.include_router(drafts.router)
 app.include_router(webhooks.router)
 app.include_router(public.router)
+app.include_router(me.router)
+app.include_router(agent_invites.router)
 
 
 @app.get("/health")

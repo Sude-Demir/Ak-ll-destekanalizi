@@ -6,9 +6,10 @@ backend/.venv/
 __pycache__/
 *.pyc
 
-# run_eval.py'nin kaldığı yerden devam etmek için tuttuğu, makineye özel
-# ilerleme kaydı — commit edilmez.
+# run_eval.py ve classify_backlog.py'nin kaldığı yerden devam etmek için
+# tuttuğu, makineye özel ilerleme kayıtları — commit edilmez.
 backend/eval_progress.json
+backend/classify_progress.json
 
 # Node / Next.js
 frontend/node_modules/

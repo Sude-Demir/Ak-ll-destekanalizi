@@ -1,4 +1,5 @@
 import { categoryColorClasses, categoryLabel } from "@/lib/categories";
+import type { Locale } from "@/lib/i18n";
 
 function TagIcon() {
   return (
@@ -17,7 +18,7 @@ function TagIcon() {
 /** Talebin kategorisini gösteren rozet. Her kategori küçük, tekrar eden bir
  * paletten (bkz. lib/categories.ts CATEGORY_COLOR) kendi rengini alır —
  * sadece renge güvenmemek için ikon + metinle birlikte gösterilir. */
-export default function CategoryBadge({ category }: { category: string | null }) {
+export default function CategoryBadge({ category, locale }: { category: string | null; locale: Locale }) {
   if (category === null) {
     return <span className="text-[12px] text-faint">—</span>;
   }
@@ -27,7 +28,7 @@ export default function CategoryBadge({ category }: { category: string | null })
       className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${categoryColorClasses(category)}`}
     >
       <TagIcon />
-      {categoryLabel(category)}
+      {categoryLabel(category, locale)}
     </span>
   );
 }

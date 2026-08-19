@@ -9,6 +9,7 @@ export interface Ticket {
   status: string;
   created_at: string;
   updated_at: string;
+  is_answered: boolean;
 }
 
 export interface RetrievedContextItem {
@@ -106,6 +107,147 @@ export async function submitPublicTicket(payload: PublicTicketSubmission): Promi
 
   if (!res.ok) {
     throw new Error(`Talep gönderilemedi (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export interface Me {
+  clerk_user_id: string;
+  is_agent: boolean;
+  name: string;
+}
+
+export interface MyTicket {
+  id: number;
+  subject: string;
+  body: string;
+  created_at: string;
+  answer: string | null;
+}
+
+// Giriş yapan kişinin temsilci mi müşteri mi olduğunu döner — kök sayfa
+// (app/page.tsx) buna göre /dashboard veya /portal'a yönlendirir.
+export async function fetchMe(token: string | null): Promise<Me> {
+  const res = await fetch(`${API_BASE_URL}/me`, { cache: "no-store", headers: authHeaders(token) });
+
+  if (!res.ok) {
+    throw new Error(`Kullanıcı bilgisi alınamadı (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export async function fetchMyTickets(token: string | null): Promise<MyTicket[]> {
+  const res = await fetch(`${API_BASE_URL}/me/tickets`, { cache: "no-store", headers: authHeaders(token) });
+
+  if (!res.ok) {
+    throw new Error(`Talepleriniz alınamadı (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export async function fetchMyTicket(id: number, token: string | null): Promise<MyTicket> {
+  const res = await fetch(`${API_BASE_URL}/me/tickets/${id}`, {
+    cache: "no-store",
+    headers: authHeaders(token),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Talep alınamadı (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export interface MyTicketSubmission {
+  subject: string;
+  body: string;
+}
+
+// Ad/e-posta burada YOK — backend bunları Clerk oturumundan okur (bkz.
+// backend/app/services/clerk_users.py), böylece biri başkasının adına talep
+// açamaz.
+export async function submitMyTicket(payload: MyTicketSubmission, token: string | null): Promise<MyTicket> {
+  const res = await fetch(`${API_BASE_URL}/me/tickets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Talep gönderilemedi (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export interface AgentInvite {
+  id: number;
+  token: string;
+  email: string;
+  name: string | null;
+  invited_by: string;
+  expires_at: string;
+  created_at: string;
+  accepted_at: string | null;
+  status: "pending" | "accepted" | "expired";
+}
+
+export interface AgentInviteSubmission {
+  email: string;
+  name?: string;
+}
+
+export async function fetchAgentInvites(token: string | null): Promise<AgentInvite[]> {
+  const res = await fetch(`${API_BASE_URL}/agent-invites`, { cache: "no-store", headers: authHeaders(token) });
+
+  if (!res.ok) {
+    throw new Error(`Davetler alınamadı (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export async function createAgentInvite(
+  payload: AgentInviteSubmission,
+  token: string | null
+): Promise<AgentInvite> {
+  const res = await fetch(`${API_BASE_URL}/agent-invites`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Davet oluşturulamadı (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+// Kimlik doğrulaması istemez — davet linkine tıklayan kişi giriş yapmadan
+// önce "kim davet etti" bilgisini görebilsin diye (bkz. backend/app/routers/agent_invites.py).
+export async function fetchInvitePreview(token: string): Promise<AgentInvite> {
+  const res = await fetch(`${API_BASE_URL}/agent-invites/${token}`, { cache: "no-store" });
+
+  if (!res.ok) {
+    throw new Error(`Davet bulunamadı (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export async function acceptAgentInvite(inviteToken: string, authToken: string | null): Promise<AgentInvite> {
+  const res = await fetch(`${API_BASE_URL}/agent-invites/${inviteToken}/accept`, {
+    method: "POST",
+    headers: authHeaders(authToken),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail ?? `Davet kabul edilemedi (HTTP ${res.status})`);
   }
 
   return res.json();

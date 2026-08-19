@@ -1,4 +1,5 @@
 import type { Ticket } from "@/lib/api";
+import { t, type Locale } from "@/lib/i18n";
 
 // Kaynak liste: backend/app/services/classification.py CATEGORIES. Backend'e
 // dokunmadan filtre çubuğunda sabit ve öngörülebilir bir sırayla göstermek için
@@ -19,18 +20,33 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
-export const CATEGORY_LABELS: Record<Category, string> = {
-  ACCOUNT: "Hesap",
-  ORDER: "Sipariş",
-  REFUND: "İade",
-  DELIVERY: "Teslimat",
-  PAYMENT: "Ödeme",
-  INVOICE: "Fatura",
-  SHIPPING: "Kargo",
-  CANCEL: "İptal",
-  CONTACT: "İletişim",
-  FEEDBACK: "Geri Bildirim",
-  SUBSCRIPTION: "Abonelik",
+export const CATEGORY_LABELS: Record<Locale, Record<Category, string>> = {
+  tr: {
+    ACCOUNT: "Hesap",
+    ORDER: "Sipariş",
+    REFUND: "İade",
+    DELIVERY: "Teslimat",
+    PAYMENT: "Ödeme",
+    INVOICE: "Fatura",
+    SHIPPING: "Kargo",
+    CANCEL: "İptal",
+    CONTACT: "İletişim",
+    FEEDBACK: "Geri Bildirim",
+    SUBSCRIPTION: "Abonelik",
+  },
+  en: {
+    ACCOUNT: "Account",
+    ORDER: "Order",
+    REFUND: "Refund",
+    DELIVERY: "Delivery",
+    PAYMENT: "Payment",
+    INVOICE: "Invoice",
+    SHIPPING: "Shipping",
+    CANCEL: "Cancellation",
+    CONTACT: "Contact",
+    FEEDBACK: "Feedback",
+    SUBSCRIPTION: "Subscription",
+  },
 };
 
 export const UNCLASSIFIED_KEY = "UNCLASSIFIED";
@@ -92,9 +108,9 @@ export function categorySwatchClass(key: string): string {
 
 /** `key`, gerçek bir kategori kodu ya da UNCLASSIFIED_KEY olabilir. Backend'in
  * FALLBACK_CATEGORY'si ("OTHER") gibi bilinmeyen değerler ham haliyle döner. */
-export function categoryLabel(key: string): string {
-  if (key === UNCLASSIFIED_KEY) return "Sınıflandırılmadı";
-  return isCategory(key) ? CATEGORY_LABELS[key] : key;
+export function categoryLabel(key: string, locale: Locale): string {
+  if (key === UNCLASSIFIED_KEY) return t(locale, "category.unclassified");
+  return isCategory(key) ? CATEGORY_LABELS[locale][key] : key;
 }
 
 export interface CategoryCount {
@@ -105,23 +121,23 @@ export interface CategoryCount {
 
 /** 11 sabit kategoriyi (0 sayılı olsa bile) her zaman aynı sırada döner —
  * filtre çubuğunun her yüklemede aynı düzende görünmesi için. */
-export function countsByFixedCategoryOrder(tickets: Ticket[]): CategoryCount[] {
+export function countsByFixedCategoryOrder(tickets: Ticket[], locale: Locale): CategoryCount[] {
   const counts = new Map<string, number>();
   for (const ticket of tickets) {
     if (ticket.category) counts.set(ticket.category, (counts.get(ticket.category) ?? 0) + 1);
   }
-  return CATEGORIES.map((key) => ({ key, label: CATEGORY_LABELS[key], count: counts.get(key) ?? 0 }));
+  return CATEGORIES.map((key) => ({ key, label: CATEGORY_LABELS[locale][key], count: counts.get(key) ?? 0 }));
 }
 
 /** Talep sayısına göre azalan sırada, sınıflandırılmamış talepleri de ayrı bir
  * grup olarak dahil eder. Dağılım özetinde kullanılır. */
-export function countTicketsByCategory(tickets: Ticket[]): CategoryCount[] {
+export function countTicketsByCategory(tickets: Ticket[], locale: Locale): CategoryCount[] {
   const counts = new Map<string, number>();
   for (const ticket of tickets) {
     const key = ticket.category ?? UNCLASSIFIED_KEY;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return Array.from(counts.entries())
-    .map(([key, count]) => ({ key, label: categoryLabel(key), count }))
+    .map(([key, count]) => ({ key, label: categoryLabel(key, locale), count }))
     .sort((a, b) => b.count - a.count);
 }

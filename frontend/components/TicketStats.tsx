@@ -1,4 +1,6 @@
 import type { Ticket } from "@/lib/api";
+import { t } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 
 function Stat({
   value,
@@ -19,17 +21,18 @@ function Stat({
   );
 }
 
-export default function TicketStats({ tickets }: { tickets: Ticket[] }) {
-  const open = tickets.filter((t) => t.status === "open").length;
-  const closed = tickets.filter((t) => t.status === "closed").length;
-  const classified = tickets.filter((t) => t.category !== null).length;
+export default async function TicketStats({ tickets }: { tickets: Ticket[] }) {
+  const locale = await getLocale();
+  const open = tickets.filter((ticket) => ticket.status === "open").length;
+  const closed = tickets.filter((ticket) => ticket.status === "closed").length;
+  const classified = tickets.filter((ticket) => ticket.category !== null).length;
 
   return (
     <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <Stat value={tickets.length} label="toplam talep" />
-      <Stat value={open} label="açık" />
-      <Stat value={classified} label="sınıflandırıldı" accent />
-      <Stat value={closed} label="çözüldü" />
+      <Stat value={tickets.length} label={t(locale, "ticketStats.total")} />
+      <Stat value={open} label={t(locale, "ticketStats.open")} />
+      <Stat value={classified} label={t(locale, "ticketStats.classified")} accent />
+      <Stat value={closed} label={t(locale, "ticketStats.resolved")} />
     </div>
   );
 }

@@ -21,6 +21,13 @@ class TicketRead(BaseModel):
     status: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
+    # Onaylanmış/düzenlenmiş bir taslağı var mı (bkz. app.models.draft_response
+    # ANSWERED_DRAFT_STATUSES). Varsayılan False — çünkü bu alan sadece
+    # app.routers.tickets tarafından hesaplanıp dolduruluyor; TicketRead'i
+    # doğrudan bir Ticket ORM nesnesinden üreten diğer uç noktalarda
+    # (public.py, webhooks.py — yeni oluşturulan bir talep, henüz taslaksız)
+    # doğru varsayılan zaten budur.
+    is_answered: bool = False
 
 
 class DraftResponseRead(BaseModel):
@@ -73,6 +80,68 @@ class PostmarkFromFull(BaseModel):
 
     Email: str
     Name: str = ""
+
+
+class MeRead(BaseModel):
+    """Giriş yapan kullanıcının kendi profili — frontend'in `/dashboard` mı
+    `/portal` mı göstereceğine karar verdiği yer (bkz. app.routers.me)."""
+
+    clerk_user_id: str
+    is_agent: bool
+    name: str
+
+
+class MyTicketCreate(BaseModel):
+    """Giriş yapmış bir müşterinin kendi portalından açtığı talep. Ad/e-posta
+    burada istenmez — Clerk oturumundan okunur (bkz.
+    app.services.clerk_users)."""
+
+    subject: str = Field(min_length=1, max_length=500)
+    body: str = Field(min_length=1)
+
+
+class MyTicketRead(BaseModel):
+    """Müşterinin kendi talebi için gördüğü, indirgenmiş temsil. Taslağın
+    dayandığı SSS kaynakları ve güven skoru gibi iç bilgiler burada YOK —
+    sadece onaylanmış/düzenlenmiş bir taslak varsa `answer` alanında
+    görünür (bkz. CLAUDE.md "İnsan onaylı akış")."""
+
+    id: int
+    subject: str
+    body: str
+    created_at: datetime.datetime
+    answer: str | None
+
+
+class AgentInviteCreate(BaseModel):
+    """Bir temsilcinin başka birini ekibe davet etmek için gönderdiği bilgi
+    (bkz. app.routers.agent_invites)."""
+
+    email: EmailStr
+    name: str | None = Field(default=None, max_length=255)
+
+
+class AgentInviteRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    token: str
+    email: str
+    name: str | None
+    invited_by: str
+    expires_at: datetime.datetime
+    created_at: datetime.datetime
+    accepted_at: datetime.datetime | None
+
+    @computed_field
+    @property
+    def status(self) -> Literal["pending", "accepted", "expired"]:
+        if self.accepted_at is not None:
+            return "accepted"
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if self.expires_at < now:
+            return "expired"
+        return "pending"
 
 
 class InboundEmailPayload(BaseModel):

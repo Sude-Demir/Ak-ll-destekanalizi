@@ -1,9 +1,12 @@
 import { ClerkProvider } from "@clerk/nextjs";
-import { trTR } from "@clerk/localizations";
+import { enUS, trTR } from "@clerk/localizations";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import AppBar from "@/components/AppBar";
+import { LocaleProvider } from "@/components/LocaleProvider";
+import { t } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,15 +19,21 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Akıllı Destek Asistanı",
-  description: "Müşteri destek taleplerini yöneten iç panel",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return {
+    // Ürün adı bir marka ismi — dile göre çevrilmiyor, sabit kalıyor.
+    title: "Akıllı Destek Asistanı",
+    description: t(locale, "meta.description"),
+  };
+}
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocale();
+
   return (
     <ClerkProvider
-      localization={trTR}
+      localization={locale === "tr" ? trTR : enUS}
       afterSignOutUrl="/sign-in"
       appearance={{
         variables: {
@@ -46,12 +55,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       }}
     >
       <html
-        lang="tr"
+        lang={locale}
         className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       >
         <body className="min-h-full flex flex-col bg-background text-foreground">
-          <AppBar />
-          {children}
+          <LocaleProvider initialLocale={locale}>
+            <AppBar />
+            {children}
+          </LocaleProvider>
         </body>
       </html>
     </ClerkProvider>
