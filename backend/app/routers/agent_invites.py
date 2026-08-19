@@ -16,21 +16,23 @@ router = APIRouter(prefix="/agent-invites", tags=["agent-invites"])
 INVITE_VALID_DAYS = 7
 
 
-@router.post("", response_model=AgentInviteRead, dependencies=[Depends(require_agent)])
+@router.post("", response_model=AgentInviteRead)
 def create_invite(
     payload: AgentInviteCreate,
-    clerk_user_id: str = Depends(require_auth),
+    agent: Agent = Depends(require_agent),
     db: Session = Depends(get_db),
 ) -> AgentInvite:
     """Bir temsilci, `scripts/add_agent.py`'yi elle çalıştırmak yerine
     panelden yeni bir temsilci daveti oluşturur. Gerçek e-posta gönderimi
-    yok (bkz. plan) — linki temsilci kendisi kopyalayıp paylaşır."""
+    yok (bkz. plan) — linki temsilci kendisi kopyalayıp paylaşır. Davet,
+    davet edenin KENDİ şirketine üye olacak şekilde oluşturulur."""
     now = datetime.datetime.now(datetime.timezone.utc)
     invite = AgentInvite(
         token=secrets.token_urlsafe(32),
+        company_id=agent.company_id,
         email=payload.email,
         name=payload.name,
-        invited_by=clerk_user_id,
+        invited_by=agent.clerk_user_id,
         expires_at=now + datetime.timedelta(days=INVITE_VALID_DAYS),
     )
     db.add(invite)
@@ -39,9 +41,13 @@ def create_invite(
     return invite
 
 
-@router.get("", response_model=list[AgentInviteRead], dependencies=[Depends(require_agent)])
-def list_invites(db: Session = Depends(get_db)) -> list[AgentInvite]:
-    stmt = select(AgentInvite).order_by(AgentInvite.created_at.desc())
+@router.get("", response_model=list[AgentInviteRead])
+def list_invites(agent: Agent = Depends(require_agent), db: Session = Depends(get_db)) -> list[AgentInvite]:
+    stmt = (
+        select(AgentInvite)
+        .filter(AgentInvite.company_id == agent.company_id)
+        .order_by(AgentInvite.created_at.desc())
+    )
     return list(db.execute(stmt).scalars().all())
 
 
@@ -89,7 +95,7 @@ def accept_invite(
         select(Agent).filter(Agent.clerk_user_id == clerk_user_id)
     ).scalar_one_or_none()
     if existing_agent is None:
-        db.add(Agent(clerk_user_id=clerk_user_id, name=invite.name or name))
+        db.add(Agent(clerk_user_id=clerk_user_id, company_id=invite.company_id, name=invite.name or name))
 
     invite.accepted_at = now
     db.commit()

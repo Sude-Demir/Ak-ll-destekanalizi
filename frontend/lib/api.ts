@@ -89,6 +89,23 @@ export async function generateDraft(ticketId: number, token: string | null): Pro
   return res.json();
 }
 
+export interface Company {
+  slug: string;
+  name: string;
+}
+
+// Bir şirketin talep formunun/portalın başlığında adını göstermek için —
+// Clerk oturumu istemez, herkese açık (bkz. backend/app/routers/public.py).
+export async function fetchCompany(slug: string): Promise<Company> {
+  const res = await fetch(`${API_BASE_URL}/public/companies/${slug}`, { cache: "no-store" });
+
+  if (!res.ok) {
+    throw new Error(`Şirket bulunamadı (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
 export interface PublicTicketSubmission {
   customer_name: string;
   customer_email: string;
@@ -98,8 +115,9 @@ export interface PublicTicketSubmission {
 
 // Gerçek müşterilerin kullandığı, Clerk oturumu GEREKTİRMEYEN tek uç nokta —
 // bkz. backend/app/routers/public.py. Bilinçli olarak authHeaders kullanmıyor.
-export async function submitPublicTicket(payload: PublicTicketSubmission): Promise<Ticket> {
-  const res = await fetch(`${API_BASE_URL}/public/tickets`, {
+// `slug`, talebin hangi şirkete gideceğini belirtir (bkz. app/support/[slug]).
+export async function submitPublicTicket(payload: PublicTicketSubmission, slug: string): Promise<Ticket> {
+  const res = await fetch(`${API_BASE_URL}/public/companies/${slug}/tickets`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -116,6 +134,7 @@ export interface Me {
   clerk_user_id: string;
   is_agent: boolean;
   name: string;
+  company_name: string | null;
 }
 
 export interface MyTicket {
@@ -124,6 +143,8 @@ export interface MyTicket {
   body: string;
   created_at: string;
   answer: string | null;
+  company_name: string;
+  company_slug: string;
 }
 
 // Giriş yapan kişinin temsilci mi müşteri mi olduğunu döner — kök sayfa
@@ -164,6 +185,7 @@ export async function fetchMyTicket(id: number, token: string | null): Promise<M
 export interface MyTicketSubmission {
   subject: string;
   body: string;
+  company_slug: string;
 }
 
 // Ad/e-posta burada YOK — backend bunları Clerk oturumundan okur (bkz.

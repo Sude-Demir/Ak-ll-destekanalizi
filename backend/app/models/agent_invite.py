@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -15,6 +15,7 @@ class AgentInvite(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
     email: Mapped[str] = mapped_column(String(255))
     # Davet ederken önerilen görünen ad; boşsa kabul anında Clerk profilinden okunur.
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)

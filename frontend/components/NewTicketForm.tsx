@@ -7,7 +7,7 @@ import { useId, useState } from "react";
 import { useLocale } from "@/components/LocaleProvider";
 import { submitMyTicket } from "@/lib/api";
 
-export default function NewTicketForm() {
+export default function NewTicketForm({ companySlug }: { companySlug: string }) {
   const { getToken } = useAuth();
   const { t } = useLocale();
   const router = useRouter();
@@ -26,9 +26,10 @@ export default function NewTicketForm() {
     setError(null);
     try {
       const token = await getToken();
-      await submitMyTicket({ subject, body }, token);
+      await submitMyTicket({ subject, body, company_slug: companySlug }, token);
       setSubject("");
       setBody("");
+      router.push("/portal");
       router.refresh();
     } catch {
       setError(t("newTicket.error"));

@@ -7,7 +7,10 @@ from fastapi.testclient import TestClient
 
 from app.auth import require_auth
 from app.db.database import get_db
+from app.models import Company, Ticket
 from main import app
+
+FAKE_COMPANY = SimpleNamespace(id=1, slug="genel", name="Genel Şirket")
 
 
 def _fake_ticket_refresh(ticket) -> None:
@@ -16,6 +19,21 @@ def _fake_ticket_refresh(ticket) -> None:
     ticket.category = None
     ticket.created_at = datetime.datetime.now(datetime.timezone.utc)
     ticket.updated_at = ticket.created_at
+
+
+def _mock_get(mock_db, ticket=None, company=FAKE_COMPANY):
+    """`db.get(Ticket, id)` ve `db.get(Company, id)` çağrılarını, model
+    sınıfına göre ayrı sahte nesnelere yönlendirir — ikisi de aynı
+    `mock_db.get` mock'unu paylaştığı için gerekli."""
+
+    def side_effect(model, _id):
+        if model is Ticket:
+            return ticket
+        if model is Company:
+            return company
+        return None
+
+    mock_db.get.side_effect = side_effect
 
 
 @pytest.fixture
@@ -46,14 +64,20 @@ def as_user():
 def test_read_me_reports_registered_agent(mock_db, as_user):
     as_user("user_agent")
     mock_db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(
-        id=1, clerk_user_id="user_agent", name="Sude Demir"
+        id=1, clerk_user_id="user_agent", company_id=1, name="Sude Demir"
     )
+    _mock_get(mock_db, company=FAKE_COMPANY)
 
     client = TestClient(app)
     res = client.get("/me")
 
     assert res.status_code == 200
-    assert res.json() == {"clerk_user_id": "user_agent", "is_agent": True, "name": "Sude Demir"}
+    assert res.json() == {
+        "clerk_user_id": "user_agent",
+        "is_agent": True,
+        "name": "Sude Demir",
+        "company_name": "Genel Şirket",
+    }
 
 
 def test_read_me_reports_customer_when_not_in_agents_table(mock_db, as_user, monkeypatch):
@@ -67,7 +91,12 @@ def test_read_me_reports_customer_when_not_in_agents_table(mock_db, as_user, mon
     res = client.get("/me")
 
     assert res.status_code == 200
-    assert res.json() == {"clerk_user_id": "user_customer", "is_agent": False, "name": "Ayşe Yılmaz"}
+    assert res.json() == {
+        "clerk_user_id": "user_customer",
+        "is_agent": False,
+        "name": "Ayşe Yılmaz",
+        "company_name": None,
+    }
 
 
 def test_create_my_ticket_uses_clerk_profile_not_client_input(mock_db, as_user, monkeypatch):
@@ -75,18 +104,39 @@ def test_create_my_ticket_uses_clerk_profile_not_client_input(mock_db, as_user, 
     monkeypatch.setattr(
         "app.routers.me.fetch_user_profile", lambda clerk_user_id: ("Ayşe Yılmaz", "ayse@example.com")
     )
+    mock_db.execute.return_value.scalar_one_or_none.return_value = FAKE_COMPANY
     mock_db.execute.return_value.scalars.return_value.first.return_value = None
+    _mock_get(mock_db, company=FAKE_COMPANY)
 
     client = TestClient(app)
-    res = client.post("/me/tickets", json={"subject": "Kargo gecikti", "body": "Siparişim gelmedi."})
+    res = client.post(
+        "/me/tickets",
+        json={"subject": "Kargo gecikti", "body": "Siparişim gelmedi.", "company_slug": "genel"},
+    )
 
     assert res.status_code == 200
     created = mock_db.add.call_args[0][0]
+    assert created.company_id == FAKE_COMPANY.id
     assert created.customer_name == "Ayşe Yılmaz"
     assert created.customer_email == "ayse@example.com"
     assert created.submitted_by_user_id == "user_customer"
     assert created.channel == "portal"
     assert res.json()["answer"] is None
+    assert res.json()["company_name"] == "Genel Şirket"
+
+
+def test_create_my_ticket_404s_for_unknown_company_slug(mock_db, as_user):
+    as_user("user_customer")
+    mock_db.execute.return_value.scalar_one_or_none.return_value = None
+
+    client = TestClient(app)
+    res = client.post(
+        "/me/tickets",
+        json={"subject": "Konu", "body": "Mesaj", "company_slug": "olmayan-sirket"},
+    )
+
+    assert res.status_code == 404
+    mock_db.add.assert_not_called()
 
 
 def test_list_my_tickets_query_is_scoped_to_own_clerk_id(mock_db, as_user):
@@ -106,7 +156,7 @@ def test_list_my_tickets_query_is_scoped_to_own_clerk_id(mock_db, as_user):
 
 def test_get_my_ticket_404s_for_someone_elses_ticket(mock_db, as_user):
     as_user("user_x")
-    mock_db.get.return_value = SimpleNamespace(id=5, submitted_by_user_id="someone_else")
+    _mock_get(mock_db, ticket=SimpleNamespace(id=5, submitted_by_user_id="someone_else"))
 
     client = TestClient(app)
     res = client.get("/me/tickets/5")
@@ -120,12 +170,16 @@ def test_get_my_ticket_never_queries_pending_or_rejected_drafts(mock_db, as_user
     dönüş değeriyle değil, gerçekten kurulan sorgunun WHERE koşulunu
     inceleyerek doğruluyoruz."""
     as_user("user_x")
-    mock_db.get.return_value = SimpleNamespace(
-        id=5,
-        submitted_by_user_id="user_x",
-        subject="Kargo gecikti",
-        body="Siparişim gelmedi.",
-        created_at=datetime.datetime.now(datetime.timezone.utc),
+    _mock_get(
+        mock_db,
+        ticket=SimpleNamespace(
+            id=5,
+            company_id=1,
+            submitted_by_user_id="user_x",
+            subject="Kargo gecikti",
+            body="Siparişim gelmedi.",
+            created_at=datetime.datetime.now(datetime.timezone.utc),
+        ),
     )
     mock_db.execute.return_value.scalars.return_value.first.return_value = None
 
@@ -145,12 +199,16 @@ def test_get_my_ticket_never_queries_pending_or_rejected_drafts(mock_db, as_user
 
 def test_get_my_ticket_surfaces_approved_answer(mock_db, as_user):
     as_user("user_x")
-    mock_db.get.return_value = SimpleNamespace(
-        id=5,
-        submitted_by_user_id="user_x",
-        subject="Kargo gecikti",
-        body="Siparişim gelmedi.",
-        created_at=datetime.datetime.now(datetime.timezone.utc),
+    _mock_get(
+        mock_db,
+        ticket=SimpleNamespace(
+            id=5,
+            company_id=1,
+            submitted_by_user_id="user_x",
+            subject="Kargo gecikti",
+            body="Siparişim gelmedi.",
+            created_at=datetime.datetime.now(datetime.timezone.utc),
+        ),
     )
     mock_db.execute.return_value.scalars.return_value.first.return_value = "Merhaba, siparişiniz yola çıktı."
 

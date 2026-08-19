@@ -62,6 +62,16 @@ class DraftStatusUpdate(BaseModel):
     draft_text: str | None = None
 
 
+class CompanyRead(BaseModel):
+    """Herkese açık, minimal şirket temsili — talep formunun/portalın
+    başlığında ("X'e Ulaşın") göstermek için (bkz. app.routers.public)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+
+
 class PublicTicketCreate(BaseModel):
     """Herkese açık destek formundan (bkz. app.routers.public) gelen talep
     verisi. Gerçek müşteriler bir Clerk hesabına sahip değildir, bu yüzden bu
@@ -89,28 +99,35 @@ class MeRead(BaseModel):
     clerk_user_id: str
     is_agent: bool
     name: str
+    # Temsilciyse hangi şirkete ait olduğu; müşteride None.
+    company_name: str | None = None
 
 
 class MyTicketCreate(BaseModel):
     """Giriş yapmış bir müşterinin kendi portalından açtığı talep. Ad/e-posta
     burada istenmez — Clerk oturumundan okunur (bkz.
-    app.services.clerk_users)."""
+    app.services.clerk_users). `company_slug`, talebin hangi şirkete
+    gideceğini belirtir (bkz. app/portal/new/[slug])."""
 
     subject: str = Field(min_length=1, max_length=500)
     body: str = Field(min_length=1)
+    company_slug: str
 
 
 class MyTicketRead(BaseModel):
     """Müşterinin kendi talebi için gördüğü, indirgenmiş temsil. Taslağın
     dayandığı SSS kaynakları ve güven skoru gibi iç bilgiler burada YOK —
     sadece onaylanmış/düzenlenmiş bir taslak varsa `answer` alanında
-    görünür (bkz. CLAUDE.md "İnsan onaylı akış")."""
+    görünür (bkz. CLAUDE.md "İnsan onaylı akış"). Müşteri artık birden
+    fazla şirkete talep açabildiği için hangi şirkete ait olduğu da döner."""
 
     id: int
     subject: str
     body: str
     created_at: datetime.datetime
     answer: str | None
+    company_name: str
+    company_slug: str
 
 
 class AgentInviteCreate(BaseModel):
@@ -157,3 +174,8 @@ class InboundEmailPayload(BaseModel):
     FromFull: PostmarkFromFull
     Subject: str = ""
     TextBody: str = ""
+    # Postmark'ın "+etiket" adreslemesindeki etiket kısmı — bir şirketin
+    # gelen e-posta adresi `adres+{slug}@inbound.postmarkapp.com` biçiminde
+    # kurulursa, Postmark bu alana şirketin slug'ını koyar (bkz.
+    # app.routers.webhooks receive_inbound_email).
+    MailboxHash: str = ""

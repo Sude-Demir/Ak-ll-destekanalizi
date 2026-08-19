@@ -25,7 +25,12 @@ export default async function MyTicketsList({ tickets }: { tickets: MyTicket[] }
             >
               <div className="min-w-0">
                 <div className="truncate text-[13.8px] font-semibold text-foreground">{ticket.subject}</div>
-                <div className="truncate text-[12.5px] text-muted">{formatDate(ticket.created_at, locale)}</div>
+                <div className="truncate text-[12.5px] text-muted">
+                  <span className="rounded-full border border-border bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold">
+                    {ticket.company_name}
+                  </span>{" "}
+                  · {formatDate(ticket.created_at, locale)}
+                </div>
               </div>
               <StatusPill
                 label={ticket.answer ? t(locale, "myTickets.answered") : t(locale, "myTickets.pending")}

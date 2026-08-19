@@ -116,11 +116,13 @@ const tr = {
 
   // Müşteri portalı
   "portal.title": "Destek Taleplerim",
-  "portal.subtitle": "Yeni bir talep gönderin veya önceki taleplerinizin durumunu görüntüleyin.",
+  "portal.subtitle": "Önceki taleplerinizin durumunu buradan görüntüleyebilirsiniz. Yeni bir talep göndermek için ilgili şirketin size verdiği bağlantıyı kullanın.",
   "portal.loadError": "Talepleriniz yüklenemedi. Lütfen sayfayı yenileyin.",
   "portalTicketDetail.back": "← Taleplerim",
   "portalTicketDetail.answerHeading": "Yanıtımız",
   "portalTicketDetail.pending": "Talebiniz inceleniyor. Destek ekibimiz en kısa sürede size dönüş yapacak.",
+  "newTicket.heading": "{company} için yeni talep",
+  "newTicket.back": "← Taleplerim",
   "newTicket.subject": "Konu",
   "newTicket.body": "Mesajınız",
   "newTicket.submitting": "Gönderiliyor…",
@@ -132,7 +134,7 @@ const tr = {
   "myTickets.pending": "İnceleniyor",
 
   // Herkese açık form (/support)
-  "support.heading": "Bize Ulaşın",
+  "support.heading": "{company}'e Ulaşın",
   "support.subtitle": "Bir sorunuz veya sorununuz mu var? Aşağıdaki formu doldurun, destek ekibimiz size dönüş yapsın.",
   "support.name": "Ad Soyad",
   "support.email": "E-posta",
@@ -246,11 +248,13 @@ const en: Record<keyof typeof tr, string> = {
   "acceptInvite.genericError": "Couldn't accept the invite.",
 
   "portal.title": "My Support Tickets",
-  "portal.subtitle": "Submit a new ticket or check the status of your previous ones.",
+  "portal.subtitle": "View the status of your previous tickets here. To submit a new one, use the link the company gave you.",
   "portal.loadError": "Couldn't load your tickets. Please refresh the page.",
   "portalTicketDetail.back": "← My Tickets",
   "portalTicketDetail.answerHeading": "Our Reply",
   "portalTicketDetail.pending": "Your ticket is being reviewed. Our support team will get back to you shortly.",
+  "newTicket.heading": "New ticket for {company}",
+  "newTicket.back": "← My Tickets",
   "newTicket.subject": "Subject",
   "newTicket.body": "Your message",
   "newTicket.submitting": "Sending…",
@@ -261,7 +265,7 @@ const en: Record<keyof typeof tr, string> = {
   "myTickets.answered": "Answered",
   "myTickets.pending": "Under review",
 
-  "support.heading": "Contact Us",
+  "support.heading": "Contact {company}",
   "support.subtitle": "Have a question or an issue? Fill out the form below and our support team will get back to you.",
   "support.name": "Full Name",
   "support.email": "Email",

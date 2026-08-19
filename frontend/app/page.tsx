@@ -37,6 +37,7 @@ export default async function Home() {
       <h1 className="text-[26px] font-bold tracking-tight text-foreground">
         {t(locale, "welcome.greeting", { name: firstName })}
       </h1>
+      {me.company_name && <p className="mt-1 text-[12.5px] text-faint">{me.company_name}</p>}
       <p className="mt-2 text-[14px] text-muted">
         {t(locale, me.is_agent ? "welcome.subtitleAgent" : "welcome.subtitleCustomer")}
       </p>

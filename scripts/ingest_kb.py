@@ -16,9 +16,15 @@ Ne yapar:
 
 Kullanım (proje kökünden, backend sanal ortamı aktifken):
     source backend/.venv/Scripts/activate
-    python scripts/ingest_kb.py
+    python scripts/ingest_kb.py --company genel
+
+`--company`, SSS'in hangi şirkete (bkz. backend/app/models/company.py) ait
+olacağını belirtir — her şirketin kendi bilgi tabanı vardır (bkz. plan "RAG
+izolasyonu"). Script sadece O şirketin mevcut SSS'ini siler ve yeniden yükler;
+diğer şirketlerin verisine dokunmaz.
 """
 
+import argparse
 import csv
 import os
 from pathlib import Path
@@ -60,7 +66,7 @@ def write_csv(rows: list[dict]) -> None:
     print(f"{len(rows)} satır {OUTPUT_CSV_PATH} dosyasına yazıldı.")
 
 
-def load_csv_to_db(rows: list[dict]) -> None:
+def load_csv_to_db(rows: list[dict], company_slug: str) -> None:
     load_dotenv(ROOT_DIR / ".env")
     # psycopg2, SQLAlchemy'nin "postgresql+psycopg2://" sürücü ekini tanımaz.
     database_url = os.environ["DATABASE_URL"].replace("postgresql+psycopg2://", "postgresql://")
@@ -68,25 +74,39 @@ def load_csv_to_db(rows: list[dict]) -> None:
     conn = psycopg2.connect(database_url)
     try:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM knowledge_base_chunks")
-            for row in rows:
+            cur.execute("SELECT id FROM companies WHERE slug = %s", (company_slug,))
+            row = cur.fetchone()
+            if row is None:
+                raise SystemExit(
+                    f"'{company_slug}' slug'lı bir şirket bulunamadı. "
+                    "Önce scripts/create_company.py ile şirketi oluştur."
+                )
+            company_id = row[0]
+
+            # Sadece BU şirketin mevcut SSS'ini siliyoruz — diğer şirketlere dokunmuyoruz.
+            cur.execute("DELETE FROM knowledge_base_chunks WHERE company_id = %s", (company_id,))
+            for kb_row in rows:
                 cur.execute(
                     """
-                    INSERT INTO knowledge_base_chunks (category, intent, question, answer, source)
-                    VALUES (%(category)s, %(intent)s, %(question)s, %(answer)s, %(source)s)
+                    INSERT INTO knowledge_base_chunks (company_id, category, intent, question, answer, source)
+                    VALUES (%(company_id)s, %(category)s, %(intent)s, %(question)s, %(answer)s, %(source)s)
                     """,
-                    row,
+                    {**kb_row, "company_id": company_id},
                 )
         conn.commit()
-        print(f"{len(rows)} satır knowledge_base_chunks tablosuna yüklendi.")
+        print(f"{len(rows)} satır knowledge_base_chunks tablosuna yüklendi ('{company_slug}' şirketi).")
     finally:
         conn.close()
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--company", required=True, help="SSS'in yükleneceği şirketin slug'ı")
+    args = parser.parse_args()
+
     if not SOURCE_CSV_PATH.exists():
         raise SystemExit(f"{SOURCE_CSV_PATH} bulunamadı.")
 
     kb_rows = select_one_per_intent(SOURCE_CSV_PATH)
     write_csv(kb_rows)
-    load_csv_to_db(kb_rows)
+    load_csv_to_db(kb_rows, args.company)

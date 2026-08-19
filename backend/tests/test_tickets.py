@@ -31,9 +31,9 @@ def as_user():
     app.dependency_overrides.pop(require_auth, None)
 
 
-def _as_agent(mock_db):
+def _as_agent(mock_db, company_id=10):
     mock_db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(
-        id=1, clerk_user_id="user_agent", name="Sude Demir"
+        id=1, clerk_user_id="user_agent", company_id=company_id, name="Sude Demir"
     )
 
 
@@ -41,6 +41,7 @@ def _ticket(**overrides):
     now = datetime.datetime.now(datetime.timezone.utc)
     base = dict(
         id=1,
+        company_id=10,
         customer_name="Ayşe Yılmaz",
         customer_email="ayse@example.com",
         subject="Kargo gecikti",
@@ -94,6 +95,22 @@ def test_list_tickets_includes_answered_flag(mock_db, as_user):
     assert [(t["id"], t["is_answered"]) for t in body] == [(1, True), (2, False)]
 
 
+def test_list_tickets_query_is_scoped_to_own_company(mock_db, as_user):
+    """Kiracı izolasyonu: sorgu SQL seviyesinde temsilcinin kendi
+    company_id'sine göre filtrelenmiş olmalı."""
+    as_user("user_agent")
+    _as_agent(mock_db, company_id=42)
+    mock_db.execute.return_value.all.return_value = []
+
+    client = TestClient(app)
+    res = client.get("/tickets")
+
+    assert res.status_code == 200
+    stmt = mock_db.execute.call_args_list[-1][0][0]
+    compiled = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+    assert "42" in compiled
+
+
 def test_get_ticket_includes_answered_flag(mock_db, as_user):
     as_user("user_agent")
     _as_agent(mock_db)
@@ -118,3 +135,37 @@ def test_get_ticket_reports_unanswered(mock_db, as_user):
 
     assert res.status_code == 200
     assert res.json()["is_answered"] is False
+
+
+def test_get_ticket_404s_for_other_companys_ticket(mock_db, as_user):
+    """Kiracı izolasyonu: başka bir şirketin talebi, var olduğu bile
+    sızdırılmadan 404 vermeli (403 değil)."""
+    as_user("user_agent")
+    _as_agent(mock_db, company_id=10)
+    mock_db.get.return_value = _ticket(id=99, company_id=999)
+
+    client = TestClient(app)
+    res = client.get("/tickets/99")
+
+    assert res.status_code == 404
+
+
+def test_get_ticket_answered_query_is_scoped_to_this_ticket_only(mock_db, as_user):
+    """Regresyon testi: 'is_answered' sorgusu SADECE istenen talebe bakmalı.
+    Önceki bir hatada, dış sorguda bir Ticket satırı olmadığı için exists()
+    kendi kendine tüm 'tickets' tablosuyla ilişkilendiriyordu — yani "herhangi
+    bir talebin onaylı taslağı var mı" sorusuna dönüşüyordu, istenen talebe
+    değil."""
+    as_user("user_agent")
+    _as_agent(mock_db, company_id=10)
+    mock_db.get.return_value = _ticket(id=7, company_id=10)
+    mock_db.execute.return_value.scalar.return_value = False
+
+    client = TestClient(app)
+    res = client.get("/tickets/7")
+
+    assert res.status_code == 200
+    stmt = mock_db.execute.call_args_list[-1][0][0]
+    compiled = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+    assert "tickets" not in compiled.lower()
+    assert "7" in compiled

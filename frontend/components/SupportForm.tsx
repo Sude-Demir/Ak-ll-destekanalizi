@@ -5,7 +5,7 @@ import { useId, useState } from "react";
 import { useLocale } from "@/components/LocaleProvider";
 import { submitPublicTicket } from "@/lib/api";
 
-export default function SupportPage() {
+export default function SupportForm({ slug, companyName }: { slug: string; companyName: string }) {
   const { t } = useLocale();
   const nameId = useId();
   const emailId = useId();
@@ -26,7 +26,10 @@ export default function SupportPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const ticket = await submitPublicTicket({ customer_name: customerName, customer_email: customerEmail, subject, body });
+      const ticket = await submitPublicTicket(
+        { customer_name: customerName, customer_email: customerEmail, subject, body },
+        slug
+      );
       setSubmittedTicketId(ticket.id);
     } catch {
       setError(t("support.error"));
@@ -37,22 +40,22 @@ export default function SupportPage() {
 
   if (submittedTicketId !== null) {
     return (
-      <main className="mx-auto max-w-xl px-6 py-16">
-        <div className="rounded-xl border border-border bg-surface p-8 text-center shadow-sm">
-          <h1 className="text-[19px] font-bold tracking-tight text-foreground">{t("support.successTitle")}</h1>
-          <p className="mt-2 text-[14px] text-muted">
-            {t("support.successBodyPrefix")}
-            <span className="font-semibold text-foreground">{submittedTicketId}</span>
-            {t("support.successBodySuffix")}
-          </p>
-        </div>
-      </main>
+      <div className="rounded-xl border border-border bg-surface p-8 text-center shadow-sm">
+        <h1 className="text-[19px] font-bold tracking-tight text-foreground">{t("support.successTitle")}</h1>
+        <p className="mt-2 text-[14px] text-muted">
+          {t("support.successBodyPrefix")}
+          <span className="font-semibold text-foreground">{submittedTicketId}</span>
+          {t("support.successBodySuffix")}
+        </p>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-16">
-      <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t("support.heading")}</h1>
+    <>
+      <h1 className="text-[22px] font-bold tracking-tight text-foreground">
+        {t("support.heading", { company: companyName })}
+      </h1>
       <p className="mt-1 text-[13.5px] text-muted">{t("support.subtitle")}</p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-xl border border-border bg-surface p-6 shadow-sm">
@@ -122,6 +125,6 @@ export default function SupportPage() {
           {submitting ? t("support.submitting") : t("support.submit")}
         </button>
       </form>
-    </main>
+    </>
   );
 }

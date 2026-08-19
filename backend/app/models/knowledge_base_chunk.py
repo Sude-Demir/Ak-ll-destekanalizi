@@ -1,7 +1,7 @@
 import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -12,11 +12,14 @@ EMBEDDING_DIM = 768
 
 
 class KnowledgeBaseChunk(Base):
-    """SSS/dokümantasyondan gelen, RAG (retrieval) için kullanılan bir bilgi parçası."""
+    """SSS/dokümantasyondan gelen, RAG (retrieval) için kullanılan bir bilgi parçası.
+    Her parça tek bir şirkete ait — bkz. app.services.retrieval, bir şirketin
+    taslakları başka bir şirketin SSS'ine asla dayanmaz."""
 
     __tablename__ = "knowledge_base_chunks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
     category: Mapped[str] = mapped_column(String(100))
     intent: Mapped[str] = mapped_column(String(100), index=True)
     question: Mapped[str] = mapped_column(Text)

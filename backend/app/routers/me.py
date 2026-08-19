@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.db.database import get_db
-from app.models import Agent, DraftResponse, Ticket
+from app.models import Agent, Company, DraftResponse, Ticket
 from app.models.draft_response import ANSWERED_DRAFT_STATUSES
 from app.schemas import MeRead, MyTicketCreate, MyTicketRead
 from app.services.clerk_users import fetch_user_profile
@@ -22,12 +22,18 @@ def _latest_answer(db: Session, ticket_id: int) -> str | None:
 
 
 def _to_my_ticket_read(db: Session, ticket: Ticket) -> MyTicketRead:
+    # Müşterinin talep sayısı (kendi taleplerinin listesi) küçük olduğu için
+    # burada şirket başına ayrı sorgu atmak (agent tarafındaki 300 taleplik
+    # dashboard'un aksine) performans sorunu yaratmıyor.
+    company = db.get(Company, ticket.company_id)
     return MyTicketRead(
         id=ticket.id,
         subject=ticket.subject,
         body=ticket.body,
         created_at=ticket.created_at,
         answer=_latest_answer(db, ticket.id),
+        company_name=company.name,
+        company_slug=company.slug,
     )
 
 
@@ -37,7 +43,8 @@ def read_me(clerk_user_id: str = Depends(require_auth), db: Session = Depends(ge
     kök sayfada (`/`) buna göre `/dashboard` ya da `/portal`'a yönlendirir."""
     agent = db.execute(select(Agent).filter(Agent.clerk_user_id == clerk_user_id)).scalar_one_or_none()
     if agent is not None:
-        return MeRead(clerk_user_id=clerk_user_id, is_agent=True, name=agent.name)
+        company = db.get(Company, agent.company_id)
+        return MeRead(clerk_user_id=clerk_user_id, is_agent=True, name=agent.name, company_name=company.name)
 
     name, _email = fetch_user_profile(clerk_user_id)
     return MeRead(clerk_user_id=clerk_user_id, is_agent=False, name=name)
@@ -51,10 +58,16 @@ def create_my_ticket(
 ) -> MyTicketRead:
     """Giriş yapmış bir müşterinin kendi portalından talep açması. Ad/e-posta
     gövdede istenmez, taklit edilmesin diye Clerk oturumundan okunur (bkz.
-    app.services.clerk_users)."""
+    app.services.clerk_users). `payload.company_slug` talebin hangi şirkete
+    gideceğini belirtir (bkz. app/portal/new/[slug])."""
+    company = db.execute(select(Company).filter(Company.slug == payload.company_slug)).scalar_one_or_none()
+    if company is None:
+        raise HTTPException(status_code=404, detail="Şirket bulunamadı")
+
     name, email = fetch_user_profile(clerk_user_id)
 
     ticket = Ticket(
+        company_id=company.id,
         customer_name=name,
         customer_email=email,
         subject=payload.subject,
@@ -72,7 +85,9 @@ def create_my_ticket(
 def list_my_tickets(
     clerk_user_id: str = Depends(require_auth), db: Session = Depends(get_db)
 ) -> list[MyTicketRead]:
-    """Giriş yapan kişinin kendi açtığı talepler, en yeniden eskiye."""
+    """Giriş yapan kişinin kendi açtığı talepler, en yeniden eskiye — hangi
+    şirkete ait olursa olsun (bir müşteri birden fazla şirkete talep açmış
+    olabilir, bkz. plan)."""
     stmt = (
         select(Ticket)
         .filter(Ticket.submitted_by_user_id == clerk_user_id)

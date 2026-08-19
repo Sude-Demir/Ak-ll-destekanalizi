@@ -28,7 +28,9 @@ class DraftResult:
 
 def generate_draft(ticket: Ticket, db: Session, top_k: int = DEFAULT_TOP_K) -> DraftResult:
     query_text = f"{ticket.subject}\n{ticket.body}"
-    chunks_with_distances = retrieve_relevant_chunks_with_distances(query_text, db, top_k=top_k)
+    chunks_with_distances = retrieve_relevant_chunks_with_distances(
+        query_text, ticket.company_id, db, top_k=top_k
+    )
     chunks: list[KnowledgeBaseChunk] = [chunk for chunk, _distance in chunks_with_distances]
     confidence_score = compute_confidence([distance for _chunk, distance in chunks_with_distances])
 

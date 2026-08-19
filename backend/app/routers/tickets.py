@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_agent
 from app.db.database import get_db
-from app.models import DraftResponse, Ticket
+from app.models import Agent, DraftResponse, Ticket
 from app.models.draft_response import ANSWERED_DRAFT_STATUSES
 from app.schemas import TicketRead
 
@@ -24,11 +24,14 @@ def _answered_exists_clause():
 
 
 @router.get("", response_model=list[TicketRead])
-def list_tickets(db: Session = Depends(get_db)) -> list[TicketRead]:
-    """Tüm destek taleplerini en yeniden eskiye doğru, cevaplanma durumuyla
-    birlikte listeler (bkz. CLAUDE.md "İnsan onaylı akış")."""
+def list_tickets(agent: Agent = Depends(require_agent), db: Session = Depends(get_db)) -> list[TicketRead]:
+    """Temsilcinin KENDİ şirketine ait talepleri en yeniden eskiye doğru,
+    cevaplanma durumuyla birlikte listeler (bkz. CLAUDE.md "İnsan onaylı
+    akış" ve plan "RAG izolasyonu" — aynı prensip talep listesi için de
+    geçerli)."""
     stmt = (
         select(Ticket, _answered_exists_clause().label("is_answered"))
+        .filter(Ticket.company_id == agent.company_id)
         .order_by(Ticket.created_at.desc())
     )
     results = []
@@ -40,13 +43,25 @@ def list_tickets(db: Session = Depends(get_db)) -> list[TicketRead]:
 
 
 @router.get("/{ticket_id}", response_model=TicketRead)
-def get_ticket(ticket_id: int, db: Session = Depends(get_db)) -> TicketRead:
-    """Tek bir destek talebinin detayını, cevaplanma durumuyla birlikte döner."""
+def get_ticket(
+    ticket_id: int, agent: Agent = Depends(require_agent), db: Session = Depends(get_db)
+) -> TicketRead:
+    """Tek bir destek talebinin detayını, cevaplanma durumuyla birlikte döner.
+    Talep başka bir şirkete aitse, var olduğu bile sızdırılmadan 404 döner."""
     ticket = db.get(Ticket, ticket_id)
-    if ticket is None:
+    if ticket is None or ticket.company_id != agent.company_id:
         raise HTTPException(status_code=404, detail="Talep bulunamadı")
 
-    is_answered = db.execute(select(_answered_exists_clause())).scalar()
+    # Not: _answered_exists_clause() dış sorguda bir Ticket satırı olduğunda
+    # (list_tickets'taki gibi) doğru ilişkilendirilir; burada tek bir talep
+    # sorgulandığı için ticket_id'yi doğrudan literal değer olarak filtreliyoruz.
+    is_answered = db.execute(
+        select(
+            exists()
+            .where(DraftResponse.ticket_id == ticket_id)
+            .where(DraftResponse.status.in_(ANSWERED_DRAFT_STATUSES))
+        )
+    ).scalar()
     data = TicketRead.model_validate(ticket)
     data.is_answered = bool(is_answered)
     return data
