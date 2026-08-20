@@ -6,21 +6,8 @@ import { useState } from "react";
 import StatusPill from "@/components/StatusPill";
 import { useLocale } from "@/components/LocaleProvider";
 import { generateDraft, updateDraftStatus, type DraftResponse } from "@/lib/api";
-import { formatDate, formatPercent, type Locale, type TranslationKey } from "@/lib/i18n";
-
-const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
-  pending: "draftPanel.statusPending",
-  approved: "draftPanel.statusApproved",
-  edited: "draftPanel.statusEdited",
-  rejected: "draftPanel.statusRejected",
-};
-
-const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-status-open-bg text-status-open-fg",
-  approved: "bg-status-done-bg text-status-done-fg",
-  edited: "bg-status-wait-bg text-status-wait-fg",
-  rejected: "bg-surface-2 text-muted",
-};
+import { DRAFT_STATUS_LABEL_KEYS, DRAFT_STATUS_PILL_CLASSES } from "@/lib/draftStatus";
+import { formatDate, formatPercent, type Locale } from "@/lib/i18n";
 
 function formatConfidence(score: number | null, locale: Locale): string {
   if (score === null) return "—";
@@ -65,8 +52,8 @@ function DraftCard({
       <div className="flex items-center justify-between gap-3 bg-accent-soft px-5 py-3">
         <div className="flex items-center gap-2">
           <StatusPill
-            label={STATUS_LABEL_KEYS[draft.status] ? t(STATUS_LABEL_KEYS[draft.status]) : draft.status}
-            className={STATUS_STYLES[draft.status] ?? "bg-surface-2 text-muted"}
+            label={DRAFT_STATUS_LABEL_KEYS[draft.status] ? t(DRAFT_STATUS_LABEL_KEYS[draft.status]) : draft.status}
+            className={DRAFT_STATUS_PILL_CLASSES[draft.status] ?? "bg-surface-2 text-muted"}
           />
           {isPending && draft.needs_escalation && (
             <StatusPill label={t("draftPanel.needsAttention")} className="bg-status-open-bg text-status-open-fg" />

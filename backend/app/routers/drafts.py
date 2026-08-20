@@ -1,11 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from google.genai import errors as genai_errors
+from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from app.auth import require_agent
 from app.db.database import get_db
 from app.models import Agent, DraftResponse, Ticket
-from app.schemas import DraftResponseRead, DraftStatusUpdate
+from app.schemas import (
+    BulkApproveRequest,
+    BulkApproveResult,
+    BulkGenerateResult,
+    DraftResponseRead,
+    DraftStatusUpdate,
+)
 from app.services.classification import classify_ticket
 from app.services.draft_generation import generate_draft
 
@@ -96,3 +103,102 @@ def update_draft_status(
     db.commit()
     db.refresh(draft)
     return draft
+
+
+@router.post("/bulk-approve", response_model=BulkApproveResult)
+def bulk_approve_tickets(
+    payload: BulkApproveRequest, agent: Agent = Depends(require_agent), db: Session = Depends(get_db)
+) -> BulkApproveResult:
+    """Birden fazla talebin PENDING durumdaki taslağını tek seferde onaylar
+    (bkz. frontend TicketsTable "Seçilenleri Onayla"). Bulunamayan, başka
+    şirkete ait ya da pending taslağı olmayan id'ler sessizce `skipped`e
+    düşer — hata fırlatmaz, kısmi başarı toleranslıdır."""
+    own_ticket_ids = set(
+        db.execute(
+            select(Ticket.id).filter(Ticket.id.in_(payload.ticket_ids), Ticket.company_id == agent.company_id)
+        )
+        .scalars()
+        .all()
+    )
+
+    approved: list[int] = []
+    skipped: list[int] = []
+    for ticket_id in payload.ticket_ids:
+        if ticket_id not in own_ticket_ids:
+            skipped.append(ticket_id)
+            continue
+        draft = db.execute(
+            select(DraftResponse)
+            .filter(DraftResponse.ticket_id == ticket_id, DraftResponse.status == "pending")
+            .order_by(DraftResponse.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if draft is None:
+            skipped.append(ticket_id)
+            continue
+        draft.status = "approved"
+        approved.append(ticket_id)
+
+    db.commit()
+    return BulkApproveResult(approved=approved, skipped=skipped)
+
+
+@router.post("/bulk-generate-drafts", response_model=BulkGenerateResult)
+def bulk_generate_drafts(
+    payload: BulkApproveRequest, agent: Agent = Depends(require_agent), db: Session = Depends(get_db)
+) -> BulkGenerateResult:
+    """Hiç taslağı üretilmemiş birden fazla talep için tek seferde AI taslağı
+    üretir (bkz. frontend TicketsTable "Seçilenler için Taslak Oluştur").
+    Taslaklar yine "pending" olarak eklenir — bu uç nokta hiçbir şeyi
+    otomatik onaylamaz (bkz. CLAUDE.md "İnsan onaylı akış").
+
+    Her talep için gerçek bir Gemini çağrısı yapılır — ücretsiz katmanın
+    günlük kotası düşük olduğu için (bkz. app/services/llm.py) bazı talepler
+    kota/ağ hatasıyla `failed`e düşebilir; bu durumda işlem DURMAZ, sıradaki
+    talebe geçilir (kısmi başarı toleranslı, `bulk_approve_tickets` ile aynı
+    prensip)."""
+    own_ticket_ids = set(
+        db.execute(
+            select(Ticket.id).filter(Ticket.id.in_(payload.ticket_ids), Ticket.company_id == agent.company_id)
+        )
+        .scalars()
+        .all()
+    )
+
+    created: list[int] = []
+    skipped: list[int] = []
+    failed: list[int] = []
+    for ticket_id in payload.ticket_ids:
+        if ticket_id not in own_ticket_ids:
+            skipped.append(ticket_id)
+            continue
+
+        has_pending = db.execute(
+            select(exists().where(DraftResponse.ticket_id == ticket_id).where(DraftResponse.status == "pending"))
+        ).scalar()
+        if has_pending:
+            skipped.append(ticket_id)
+            continue
+
+        ticket = db.get(Ticket, ticket_id)
+        try:
+            if ticket.category is None:
+                ticket.category = classify_ticket(ticket.subject, ticket.body)
+            result = generate_draft(ticket, db)
+        except genai_errors.APIError:
+            failed.append(ticket_id)
+            continue
+
+        db.add(
+            DraftResponse(
+                ticket_id=ticket.id,
+                draft_text=result.draft_text,
+                retrieved_context=result.retrieved_context,
+                confidence_score=result.confidence_score,
+                status="pending",
+            )
+        )
+        created.append(ticket_id)
+
+    db.commit()
+    return BulkGenerateResult(created=created, skipped=skipped, failed=failed)

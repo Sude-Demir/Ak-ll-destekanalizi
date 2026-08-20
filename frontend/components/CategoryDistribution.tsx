@@ -1,16 +1,21 @@
-import type { Ticket } from "@/lib/api";
-import { categorySwatchClass, countTicketsByCategory } from "@/lib/categories";
+import { categoryDistribution, categorySwatchClass } from "@/lib/categories";
 import { formatPercent, t } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 
 const TOP_N = 5;
 
-export default async function CategoryDistribution({ tickets }: { tickets: Ticket[] }) {
-  const total = tickets.length;
+export default async function CategoryDistribution({
+  categoryCounts,
+  overallTotal,
+}: {
+  categoryCounts: Record<string, number>;
+  overallTotal: number;
+}) {
+  const total = overallTotal;
   if (total === 0) return null;
 
   const locale = await getLocale();
-  const counts = countTicketsByCategory(tickets, locale);
+  const counts = categoryDistribution(categoryCounts, overallTotal, locale);
   const top = counts.slice(0, TOP_N);
   const otherCount = counts.slice(TOP_N).reduce((sum, c) => sum + c.count, 0);
   // "Diğer" ve "Sınıflandırılmadı" gerçek bir kategori değil; categorySwatchClass

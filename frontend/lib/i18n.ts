@@ -13,6 +13,12 @@ const tr = {
   // Ortak
   "common.signIn": "Giriş Yap",
 
+  // Tema anahtarı (ThemeSwitcher)
+  "theme.switcherLabel": "Görünüm",
+  "theme.system": "Sistem",
+  "theme.light": "Açık",
+  "theme.dark": "Koyu",
+
   // Karşılama ekranı (app/page.tsx)
   "welcome.subtitleSignedOut": "Destek taleplerini yönetmek veya yeni bir talep göndermek için giriş yapın.",
   "welcome.greeting": "Hoş geldin, {name}.",
@@ -26,8 +32,37 @@ const tr = {
   "dashboard.subtitle": "Bir talebe tıklayarak detayını görüntüleyebilir ve AI destekli yanıt taslağı oluşturabilirsin.",
   "dashboard.loadError": "Destek talepleri yüklenemedi. Backend'in (http://localhost:8000) çalıştığından emin olun.",
   "dashboard.team": "Ekip",
+  "dashboard.analytics": "Analitik",
   "dashboard.emptyForCategory": "Bu kategoride ({category}) talep yok.",
   "dashboard.loadingAriaLabel": "Destek talepleri yükleniyor",
+  "dashboard.searchPlaceholder": "Konu, müşteri adı veya metinde ara…",
+
+  // Sayfalama (Pagination)
+  "pagination.ariaLabel": "Sayfa gezinme",
+  "pagination.previous": "← Önceki",
+  "pagination.next": "Sonraki →",
+  "pagination.pageOf": "Sayfa {page} / {totalPages}",
+
+  // Sidebar (dashboard/layout.tsx) — dashboard.analytics/dashboard.team de
+  // burada yeniden kullanılır.
+  "sidebar.tickets": "Talepler",
+
+  // Analitik sayfası (dashboard/analytics)
+  "analytics.title": "Analitik",
+  "analytics.loadError": "Analitik veriler yüklenemedi. Lütfen sayfayı yenileyin.",
+  "analytics.thesis": "{total} talepten {answered}'i cevaplandı; üretilen taslakların {rate}'i onaylandı.",
+  "analytics.thesisEmpty": "Henüz hiç taslak karara bağlanmadı.",
+  "analytics.totalTickets": "toplam talep",
+  "analytics.answeredTickets": "cevaplandı",
+  "analytics.approvalRate": "onay oranı",
+  "analytics.averageConfidence": "ortalama güven",
+  "analytics.draftOutcomeHeading": "Taslak Sonuçları",
+  "analytics.draftOutcomeAriaLabel": "Taslak durumu dağılımı lejantı",
+  "analytics.draftOutcomeEmpty": "Henüz hiç taslak üretilmedi.",
+  "analytics.escalatedCount": "{count} taslak düşük güven nedeniyle dikkatli incelemeye düştü",
+  "analytics.volumeHeading": "Zaman İçinde Talep Hacmi",
+  "analytics.volumeEmpty": "Henüz talep verisi yok.",
+  "analytics.volumeRange": "toplam {total} talep",
 
   // Talep tablosu (TicketsTable)
   "ticketsTable.subject": "Talep",
@@ -39,6 +74,15 @@ const tr = {
   "ticketsTable.empty": "Henüz destek talebi bulunmuyor.",
   "ticketsTable.answered": "Cevaplandı",
   "ticketsTable.unanswered": "Cevaplanmadı",
+  "ticketsTable.selectRow": "{subject} talebini seç",
+  "ticketsTable.selectedCount": "{count} seçili",
+  "ticketsTable.bulkApproveCount": "{count} Onayla",
+  "ticketsTable.bulkApproving": "Onaylanıyor…",
+  "ticketsTable.bulkApproveError": "Bazı taslaklar onaylanamadı. Lütfen tekrar deneyin.",
+  "ticketsTable.bulkGenerateCount": "{count} için Taslak Oluştur",
+  "ticketsTable.bulkGenerating": "Oluşturuluyor…",
+  "ticketsTable.bulkGenerateError": "Taslaklar oluşturulamadı. Lütfen tekrar deneyin.",
+  "ticketsTable.bulkGeneratePartialError": "{count} talep için taslak oluşturulamadı (muhtemelen günlük AI kotası doldu).",
   "ticketStatus.open": "Açık",
   "ticketStatus.pending": "Beklemede",
   "ticketStatus.closed": "Kapalı",
@@ -49,6 +93,7 @@ const tr = {
   "ticketDetail.category": "Kategori",
   "ticketDetail.unclassified": "Henüz sınıflandırılmadı",
   "ticketDetail.createdAt": "Oluşturulma",
+  "ticketDetail.customerHistoryHeading": "Bu müşterinin diğer talepleri",
 
   // Taslak paneli (DraftPanel)
   "draftPanel.statusPending": "Onay bekliyor",
@@ -154,6 +199,11 @@ const tr = {
 const en: Record<keyof typeof tr, string> = {
   "common.signIn": "Sign In",
 
+  "theme.switcherLabel": "Appearance",
+  "theme.system": "System",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+
   "welcome.subtitleSignedOut": "Sign in to manage support tickets or submit a new one.",
   "welcome.greeting": "Welcome, {name}.",
   "welcome.subtitleAgent": "Continue viewing incoming support tickets.",
@@ -165,8 +215,33 @@ const en: Record<keyof typeof tr, string> = {
   "dashboard.subtitle": "Click a ticket to view its details and generate an AI-assisted draft reply.",
   "dashboard.loadError": "Couldn't load support tickets. Make sure the backend (http://localhost:8000) is running.",
   "dashboard.team": "Team",
+  "dashboard.analytics": "Analytics",
   "dashboard.emptyForCategory": "No tickets in this category ({category}).",
   "dashboard.loadingAriaLabel": "Loading support tickets",
+  "dashboard.searchPlaceholder": "Search by subject, customer, or text…",
+
+  "pagination.ariaLabel": "Page navigation",
+  "pagination.previous": "← Previous",
+  "pagination.next": "Next →",
+  "pagination.pageOf": "Page {page} of {totalPages}",
+
+  "sidebar.tickets": "Tickets",
+
+  "analytics.title": "Analytics",
+  "analytics.loadError": "Couldn't load analytics data. Please refresh the page.",
+  "analytics.thesis": "{answered} of {total} tickets have been answered; {rate} of generated drafts were approved.",
+  "analytics.thesisEmpty": "No drafts have been decided on yet.",
+  "analytics.totalTickets": "total tickets",
+  "analytics.answeredTickets": "answered",
+  "analytics.approvalRate": "approval rate",
+  "analytics.averageConfidence": "average confidence",
+  "analytics.draftOutcomeHeading": "Draft Outcomes",
+  "analytics.draftOutcomeAriaLabel": "Draft status distribution legend",
+  "analytics.draftOutcomeEmpty": "No drafts have been generated yet.",
+  "analytics.escalatedCount": "{count} drafts flagged for careful review due to low confidence",
+  "analytics.volumeHeading": "Ticket Volume Over Time",
+  "analytics.volumeEmpty": "No ticket data yet.",
+  "analytics.volumeRange": "{total} tickets total",
 
   "ticketsTable.subject": "Ticket",
   "ticketsTable.category": "Category",
@@ -177,6 +252,15 @@ const en: Record<keyof typeof tr, string> = {
   "ticketsTable.empty": "No support tickets yet.",
   "ticketsTable.answered": "Answered",
   "ticketsTable.unanswered": "Unanswered",
+  "ticketsTable.selectRow": "Select ticket {subject}",
+  "ticketsTable.selectedCount": "{count} selected",
+  "ticketsTable.bulkApproveCount": "Approve {count}",
+  "ticketsTable.bulkApproving": "Approving…",
+  "ticketsTable.bulkApproveError": "Some drafts couldn't be approved. Please try again.",
+  "ticketsTable.bulkGenerateCount": "Generate Draft for {count}",
+  "ticketsTable.bulkGenerating": "Generating…",
+  "ticketsTable.bulkGenerateError": "Couldn't generate drafts. Please try again.",
+  "ticketsTable.bulkGeneratePartialError": "Couldn't generate drafts for {count} tickets (likely hit the daily AI quota).",
   "ticketStatus.open": "Open",
   "ticketStatus.pending": "Pending",
   "ticketStatus.closed": "Closed",
@@ -186,6 +270,7 @@ const en: Record<keyof typeof tr, string> = {
   "ticketDetail.category": "Category",
   "ticketDetail.unclassified": "Not classified yet",
   "ticketDetail.createdAt": "Created",
+  "ticketDetail.customerHistoryHeading": "This customer's other tickets",
 
   "draftPanel.statusPending": "Pending approval",
   "draftPanel.statusApproved": "Approved",

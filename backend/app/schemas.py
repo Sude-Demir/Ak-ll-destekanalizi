@@ -28,6 +28,10 @@ class TicketRead(BaseModel):
     # (public.py, webhooks.py — yeni oluşturulan bir talep, henüz taslaksız)
     # doğru varsayılan zaten budur.
     is_answered: bool = False
+    # Bu talebin en yeni "pending" durumdaki taslağının id'si — yoksa None
+    # (bkz. app.routers.drafts bulk_approve_tickets). Varsayılan None — diğer
+    # is_answered gibi sadece app.routers.tickets tarafından doldurulur.
+    pending_draft_id: int | None = None
 
 
 class DraftResponseRead(BaseModel):
@@ -60,6 +64,42 @@ class DraftStatusUpdate(BaseModel):
     status: Literal["approved", "edited", "rejected"]
     # Sadece status="edited" iken kullanılır: temsilcinin düzenlediği son metin.
     draft_text: str | None = None
+
+
+class TicketListRead(BaseModel):
+    """`GET /tickets`'in tam yanıtı — sadece o sayfadaki talepler (`items`)
+    değil, aramadan/kategori filtresinden BAĞIMSIZ şirket geneli özet de
+    içerir. Bu özet, TicketStats/CategoryDistribution/CategoryFilterBar'ın
+    her zaman "şirketin tamamı" üzerinden doğru sayı göstermesi için var —
+    sayfalama eklenince `items` artık tüm talepleri temsil etmiyor."""
+
+    items: list[TicketRead]
+    total: int  # q/category filtresi uygulanmış toplam (sayfalama için)
+    page: int
+    page_size: int
+    overall_total: int
+    open_count: int
+    classified_count: int
+    resolved_count: int
+    category_counts: dict[str, int]
+
+
+class BulkApproveRequest(BaseModel):
+    ticket_ids: list[int]
+
+
+class BulkApproveResult(BaseModel):
+    approved: list[int]
+    skipped: list[int]
+
+
+class BulkGenerateResult(BaseModel):
+    created: list[int]
+    skipped: list[int]
+    # Gerçek bir LLM çağrısı gerektirdiği için (bkz. app.routers.drafts
+    # bulk_generate_drafts) — kota/ağ hatası olan talepler burada, işlem
+    # durmadan sıradaki talebe devam edilir.
+    failed: list[int]
 
 
 class CompanyRead(BaseModel):
@@ -159,6 +199,55 @@ class AgentInviteRead(BaseModel):
         if self.expires_at < now:
             return "expired"
         return "pending"
+
+
+class TicketTotals(BaseModel):
+    """Bir şirketin toplam talep hacmi, kaçının cevaplandığı ve kaçının hiç
+    taslak üretilmeden beklediği (bkz. app.routers.analytics)."""
+
+    total: int
+    answered: int
+    without_draft: int
+
+
+class DraftTotals(BaseModel):
+    """Bir şirketin ürettiği taslakların durum dağılımı ve güven skoru özeti
+    (bkz. app.routers.analytics)."""
+
+    total: int
+    pending: int
+    approved: int
+    edited: int
+    rejected: int
+    average_confidence: float | None
+    escalated: int
+
+    @computed_field
+    @property
+    def approval_rate(self) -> float | None:
+        """Karara bağlanmış (pending olmayan) taslaklar içinde onaylanma
+        oranı. Henüz hiçbir taslak karara bağlanmadıysa None döner —
+        payda 0 olduğunda oranı 0 göstermek yanıltıcı olurdu."""
+        decided = self.approved + self.edited + self.rejected
+        return None if decided == 0 else (self.approved + self.edited) / decided
+
+
+class DailyTicketCount(BaseModel):
+    """Bir günde gelen talep sayısı (bkz. app.routers.analytics — hacim
+    grafiği)."""
+
+    date: datetime.date
+    count: int
+
+
+class AnalyticsRead(BaseModel):
+    """Bir temsilcinin şirketi için toplu performans özeti — kaç talep
+    geldi, AI taslakları ne oranda onaylandı, sistem nerede zorlanıyor
+    (bkz. app.routers.analytics)."""
+
+    tickets: TicketTotals
+    drafts: DraftTotals
+    daily_ticket_counts: list[DailyTicketCount]
 
 
 class InboundEmailPayload(BaseModel):

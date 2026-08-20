@@ -10,6 +10,29 @@ export interface Ticket {
   created_at: string;
   updated_at: string;
   is_answered: boolean;
+  pending_draft_id: number | null;
+}
+
+// GET /tickets'in tam yanıtı — `items` sadece o sayfadaki talepler, geri
+// kalan alanlar arama/kategori filtresinden BAĞIMSIZ şirket geneli özet
+// (bkz. backend/app/schemas.py TicketListRead).
+export interface TicketList {
+  items: Ticket[];
+  total: number;
+  page: number;
+  page_size: number;
+  overall_total: number;
+  open_count: number;
+  classified_count: number;
+  resolved_count: number;
+  category_counts: Record<string, number>;
+}
+
+export interface FetchTicketsParams {
+  q?: string;
+  category?: string;
+  customerEmail?: string;
+  page?: number;
 }
 
 export interface RetrievedContextItem {
@@ -43,11 +66,60 @@ function authHeaders(token: string | null): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function fetchTickets(token: string | null): Promise<Ticket[]> {
-  const res = await fetch(`${API_BASE_URL}/tickets`, { cache: "no-store", headers: authHeaders(token) });
+export async function fetchTickets(token: string | null, params: FetchTicketsParams = {}): Promise<TicketList> {
+  const searchParams = new URLSearchParams();
+  if (params.q) searchParams.set("q", params.q);
+  if (params.category) searchParams.set("category", params.category);
+  if (params.customerEmail) searchParams.set("customer_email", params.customerEmail);
+  if (params.page) searchParams.set("page", String(params.page));
+  const qs = searchParams.toString();
+
+  const res = await fetch(`${API_BASE_URL}/tickets${qs ? `?${qs}` : ""}`, {
+    cache: "no-store",
+    headers: authHeaders(token),
+  });
 
   if (!res.ok) {
     throw new Error(`Destek talepleri alınamadı (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export interface BulkApproveResult {
+  approved: number[];
+  skipped: number[];
+}
+
+export async function bulkApproveTickets(ticketIds: number[], token: string | null): Promise<BulkApproveResult> {
+  const res = await fetch(`${API_BASE_URL}/tickets/bulk-approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    body: JSON.stringify({ ticket_ids: ticketIds }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Taslaklar onaylanamadı (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export interface BulkGenerateResult {
+  created: number[];
+  skipped: number[];
+  failed: number[];
+}
+
+export async function bulkGenerateDrafts(ticketIds: number[], token: string | null): Promise<BulkGenerateResult> {
+  const res = await fetch(`${API_BASE_URL}/tickets/bulk-generate-drafts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    body: JSON.stringify({ ticket_ids: ticketIds }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Taslaklar oluşturulamadı (HTTP ${res.status})`);
   }
 
   return res.json();
@@ -270,6 +342,44 @@ export async function acceptAgentInvite(inviteToken: string, authToken: string |
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.detail ?? `Davet kabul edilemedi (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export interface TicketTotals {
+  total: number;
+  answered: number;
+  without_draft: number;
+}
+
+export interface DraftTotals {
+  total: number;
+  pending: number;
+  approved: number;
+  edited: number;
+  rejected: number;
+  average_confidence: number | null;
+  escalated: number;
+  approval_rate: number | null;
+}
+
+export interface DailyTicketCount {
+  date: string;
+  count: number;
+}
+
+export interface Analytics {
+  tickets: TicketTotals;
+  drafts: DraftTotals;
+  daily_ticket_counts: DailyTicketCount[];
+}
+
+export async function fetchAnalytics(token: string | null): Promise<Analytics> {
+  const res = await fetch(`${API_BASE_URL}/analytics`, { cache: "no-store", headers: authHeaders(token) });
+
+  if (!res.ok) {
+    throw new Error(`Analitik veriler alınamadı (HTTP ${res.status})`);
   }
 
   return res.json();

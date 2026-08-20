@@ -1,9 +1,9 @@
 import Link from "next/link";
 
-import type { Ticket } from "@/lib/api";
-import { categoryColorClasses, countsByFixedCategoryOrder } from "@/lib/categories";
+import { categoryColorClasses, fixedCategoryCounts } from "@/lib/categories";
 import { t } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { buildDashboardHref } from "@/lib/ticketQuery";
 
 // "Tümü" bir kategori değil, uygulamanın kendi marka vurgusunu (bordo) kullanır.
 const ALL_ACTIVE_CLASSES = "border-accent bg-accent text-white";
@@ -54,29 +54,33 @@ function FilterChip({
  * listeden hesaplanır (aktif filtreye göre değişmez), böylece kullanıcı diğer
  * kategorilerde kaç talep olduğunu görebilir. */
 export default async function CategoryFilterBar({
-  tickets,
+  categoryCounts,
+  overallTotal,
   activeCategory,
+  activeQuery,
 }: {
-  tickets: Ticket[];
+  categoryCounts: Record<string, number>;
+  overallTotal: number;
   activeCategory: string | null;
+  activeQuery: string | null;
 }) {
   const locale = await getLocale();
-  const counts = countsByFixedCategoryOrder(tickets, locale);
+  const counts = fixedCategoryCounts(categoryCounts, locale);
 
   return (
     <nav aria-label={t(locale, "categoryFilter.ariaLabel")} className="mt-6">
       <div role="group" className="flex gap-2 overflow-x-auto pb-1.5">
         <FilterChip
-          href="/dashboard"
+          href={buildDashboardHref({ q: activeQuery })}
           label={t(locale, "categoryFilter.all")}
-          count={tickets.length}
+          count={overallTotal}
           active={activeCategory === null}
           category={null}
         />
         {counts.map(({ key, label, count }) => (
           <FilterChip
             key={key}
-            href={`/dashboard?category=${key}`}
+            href={buildDashboardHref({ category: key, q: activeQuery })}
             label={label}
             count={count}
             active={activeCategory === key}

@@ -1,4 +1,3 @@
-import type { Ticket } from "@/lib/api";
 import { t, type Locale } from "@/lib/i18n";
 
 // Kaynak liste: backend/app/services/classification.py CATEGORIES. Backend'e
@@ -119,25 +118,32 @@ export interface CategoryCount {
   count: number;
 }
 
+// Backend'in GET /tickets yanıtındaki category_counts alanından besleniyor
+// (bkz. backend/app/schemas.py TicketListRead) — arama/kategori filtresinden
+// BAĞIMSIZ, şirketin TÜM talepleri üzerinden hesaplanmış sayılar. Bu yüzden
+// tickets.length yerine ayrıca `overallTotal` parametre olarak alınıyor.
+
 /** 11 sabit kategoriyi (0 sayılı olsa bile) her zaman aynı sırada döner —
  * filtre çubuğunun her yüklemede aynı düzende görünmesi için. */
-export function countsByFixedCategoryOrder(tickets: Ticket[], locale: Locale): CategoryCount[] {
-  const counts = new Map<string, number>();
-  for (const ticket of tickets) {
-    if (ticket.category) counts.set(ticket.category, (counts.get(ticket.category) ?? 0) + 1);
-  }
-  return CATEGORIES.map((key) => ({ key, label: CATEGORY_LABELS[locale][key], count: counts.get(key) ?? 0 }));
+export function fixedCategoryCounts(categoryCounts: Record<string, number>, locale: Locale): CategoryCount[] {
+  return CATEGORIES.map((key) => ({ key, label: CATEGORY_LABELS[locale][key], count: categoryCounts[key] ?? 0 }));
 }
 
 /** Talep sayısına göre azalan sırada, sınıflandırılmamış talepleri de ayrı bir
- * grup olarak dahil eder. Dağılım özetinde kullanılır. */
-export function countTicketsByCategory(tickets: Ticket[], locale: Locale): CategoryCount[] {
-  const counts = new Map<string, number>();
-  for (const ticket of tickets) {
-    const key = ticket.category ?? UNCLASSIFIED_KEY;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+ * grup olarak dahil eder (overallTotal - sınıflandırılmış toplam). Dağılım
+ * özetinde kullanılır. */
+export function categoryDistribution(
+  categoryCounts: Record<string, number>,
+  overallTotal: number,
+  locale: Locale
+): CategoryCount[] {
+  const entries = Object.entries(categoryCounts).filter(([, count]) => count > 0);
+  const classifiedTotal = entries.reduce((sum, [, count]) => sum + count, 0);
+  const unclassified = overallTotal - classifiedTotal;
+
+  const counts: CategoryCount[] = entries.map(([key, count]) => ({ key, label: categoryLabel(key, locale), count }));
+  if (unclassified > 0) {
+    counts.push({ key: UNCLASSIFIED_KEY, label: categoryLabel(UNCLASSIFIED_KEY, locale), count: unclassified });
   }
-  return Array.from(counts.entries())
-    .map(([key, count]) => ({ key, label: categoryLabel(key, locale), count }))
-    .sort((a, b) => b.count - a.count);
+  return counts.sort((a, b) => b.count - a.count);
 }

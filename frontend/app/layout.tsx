@@ -5,8 +5,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import AppBar from "@/components/AppBar";
 import { LocaleProvider } from "@/components/LocaleProvider";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { t } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { getTheme } from "@/lib/theme-server";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,6 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const locale = await getLocale();
+  const theme = await getTheme();
 
   return (
     <ClerkProvider
@@ -56,13 +59,21 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <html
         lang={locale}
+        // "system" için attribute hiç eklenmiyor (React, undefined attribute'u
+        // atlar) — globals.css'teki prefers-color-scheme media query'si
+        // devreye girsin diye. Cookie'den server-side okunduğu için (bkz.
+        // lib/theme-server.ts) ilk render'dan itibaren doğru — client-side bir
+        // "flash önleme" script'ine hiç gerek yok.
+        data-theme={theme === "system" ? undefined : theme}
         className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       >
         <body className="min-h-full flex flex-col bg-background text-foreground">
-          <LocaleProvider initialLocale={locale}>
-            <AppBar />
-            {children}
-          </LocaleProvider>
+          <ThemeProvider initialTheme={theme}>
+            <LocaleProvider initialLocale={locale}>
+              <AppBar />
+              {children}
+            </LocaleProvider>
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>

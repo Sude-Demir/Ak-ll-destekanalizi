@@ -75,8 +75,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Koyu palet üç yerde tekrar ediyor bilinçli olarak (media query, elle
+   "koyu" seçimi) — CSS'te @media içinde değişken paylaşmanın yerleşik bir
+   yolu yok, bu yüzden değerler burada iki kez yazılı duruyor. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  /* :not([data-theme="light"]) — kullanıcı elle "Açık" seçtiyse (bkz.
+     ThemeSwitcher), sistem koyu modda olsa bile bu blok devre dışı kalır. */
+  :root:not([data-theme="light"]) {
     /* Bej, açık/sıcak bir renk olduğu için koyu moda zorlanınca bulanık bir
        kahverengiye dönüşüyordu. Koyu mod bilinçli olarak nötr/temiz bir
        gri-antrasit — bej sadece açık modun kimliği. */
@@ -113,6 +118,43 @@
     --category-f-bg: #12312e;
     --category-f-fg: #6fd6cb;
   }
+}
+
+/* Elle "Koyu" seçimi (bkz. ThemeSwitcher) — sistem açık modda olsa bile
+   kazanır. Yukarıdaki media query bloğuyla aynı değerler. */
+:root[data-theme="dark"] {
+  --background: #17181a;
+  --surface: #1e1f22;
+  --surface-2: #27282c;
+  --border: #34353a;
+  --border-strong: #45464c;
+  --foreground: #edeef0;
+  --muted: #9b9ca3;
+  --faint: #6c6d73;
+
+  --accent: #dd8fae;
+  --accent-strong: #eaa8c4;
+  --accent-soft: #34202b;
+
+  --status-open-bg: #3a2a12;
+  --status-open-fg: #f0b562;
+  --status-wait-bg: #1e2a4a;
+  --status-wait-fg: #8fa6f5;
+  --status-done-bg: #173726;
+  --status-done-fg: #5fd895;
+
+  --category-a-bg: #163526;
+  --category-a-fg: #7ad9a0;
+  --category-b-bg: #3a1d1a;
+  --category-b-fg: #f0968a;
+  --category-c-bg: #1a2740;
+  --category-c-fg: #8fb2f0;
+  --category-d-bg: #2a1f40;
+  --category-d-fg: #c7a8f0;
+  --category-e-bg: #3a2c12;
+  --category-e-fg: #e0b862;
+  --category-f-bg: #12312e;
+  --category-f-fg: #6fd6cb;
 }
 
 body {

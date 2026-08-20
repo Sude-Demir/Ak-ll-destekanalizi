@@ -31,10 +31,8 @@ def as_user():
     app.dependency_overrides.pop(require_auth, None)
 
 
-def _as_agent(mock_db, company_id=10):
-    mock_db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(
-        id=1, clerk_user_id="user_agent", company_id=company_id, name="Sude Demir"
-    )
+def _agent_row(company_id=10):
+    return SimpleNamespace(id=1, clerk_user_id="user_agent", company_id=company_id, name="Sude Demir")
 
 
 def _ticket(**overrides):
@@ -56,11 +54,37 @@ def _ticket(**overrides):
     return SimpleNamespace(**base)
 
 
+def _result(**method_returns) -> MagicMock:
+    """`db.execute(...)`'un tek bir çağrısının sonucunu taklit eder — hangi
+    metodun (.scalar_one_or_none/.scalar/.all/.one) çağrılacağı önceden
+    bilinir, sadece o metodun dönüş değeri set edilir."""
+    result = MagicMock()
+    for method, value in method_returns.items():
+        getattr(result, method).return_value = value
+    return result
+
+
+def _list_tickets_side_effect(agent_row, count=0, items=None, summary=None, category_counts=None):
+    """`GET /tickets`'in 5 execute() çağrısı için sırayla dönecek mock
+    sonuçlarını üretir: require_agent, count, items, overall summary,
+    category_counts (bkz. app.routers.tickets.list_tickets)."""
+    items = items or []
+    summary = summary or SimpleNamespace(total=0, open_count=0, classified_count=0, resolved_count=0)
+    category_counts = category_counts or []
+    return [
+        _result(scalar_one_or_none=agent_row),
+        _result(scalar=count),
+        _result(all=items),
+        _result(one=summary),
+        _result(all=category_counts),
+    ]
+
+
 def test_customer_cannot_list_tickets(mock_db, as_user):
     """`/tickets` bir müşteri hesabından okunamamalı — buradan taleplere ve
     (drafts.py üzerinden) onaylanmamış AI taslaklarına erişilebiliyordu."""
     as_user("user_customer")
-    mock_db.execute.return_value.scalar_one_or_none.return_value = None
+    mock_db.execute.side_effect = [_result(scalar_one_or_none=None)]
 
     client = TestClient(app)
     res = client.get("/tickets")
@@ -70,78 +94,139 @@ def test_customer_cannot_list_tickets(mock_db, as_user):
 
 def test_registered_agent_can_list_tickets(mock_db, as_user):
     as_user("user_agent")
-    _as_agent(mock_db)
-    mock_db.execute.return_value.all.return_value = []
-
-    client = TestClient(app)
-    res = client.get("/tickets")
-
-    assert res.status_code == 200
-    assert res.json() == []
-
-
-def test_list_tickets_includes_answered_flag(mock_db, as_user):
-    as_user("user_agent")
-    _as_agent(mock_db)
-    answered = _ticket(id=1)
-    unanswered = _ticket(id=2)
-    mock_db.execute.return_value.all.return_value = [(answered, True), (unanswered, False)]
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
 
     client = TestClient(app)
     res = client.get("/tickets")
 
     assert res.status_code == 200
     body = res.json()
-    assert [(t["id"], t["is_answered"]) for t in body] == [(1, True), (2, False)]
+    assert body["items"] == []
+    assert body["total"] == 0
 
 
-def test_list_tickets_query_is_scoped_to_own_company(mock_db, as_user):
-    """Kiracı izolasyonu: sorgu SQL seviyesinde temsilcinin kendi
-    company_id'sine göre filtrelenmiş olmalı."""
+def test_list_tickets_includes_answered_and_pending_draft(mock_db, as_user):
     as_user("user_agent")
-    _as_agent(mock_db, company_id=42)
-    mock_db.execute.return_value.all.return_value = []
+    answered = _ticket(id=1)
+    unanswered = _ticket(id=2)
+    items = [(answered, True, None), (unanswered, False, 5)]
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row(), count=2, items=items)
 
     client = TestClient(app)
     res = client.get("/tickets")
 
     assert res.status_code == 200
-    stmt = mock_db.execute.call_args_list[-1][0][0]
-    compiled = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    assert "42" in compiled
+    body = res.json()["items"]
+    assert [(t["id"], t["is_answered"], t["pending_draft_id"]) for t in body] == [
+        (1, True, None),
+        (2, False, 5),
+    ]
 
 
-def test_get_ticket_includes_answered_flag(mock_db, as_user):
+def test_list_tickets_query_is_scoped_to_own_company(mock_db, as_user):
+    """Kiracı izolasyonu: her sorgu (count/items/summary/category_counts)
+    SQL seviyesinde temsilcinin kendi company_id'sine göre filtrelenmiş
+    olmalı (require_agent'ın kendi sorgusu hariç)."""
     as_user("user_agent")
-    _as_agent(mock_db)
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row(company_id=42))
+
+    client = TestClient(app)
+    res = client.get("/tickets")
+
+    assert res.status_code == 200
+    for call in mock_db.execute.call_args_list[1:]:
+        stmt = call[0][0]
+        compiled = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+        assert "42" in compiled
+
+
+def test_list_tickets_search_filters_subject_customer_body(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
+
+    client = TestClient(app)
+    res = client.get("/tickets", params={"q": "iphone"})
+
+    assert res.status_code == 200
+    count_sql = str(mock_db.execute.call_args_list[1][0][0].compile(compile_kwargs={"literal_binds": True}))
+    assert "iphone" in count_sql.lower()
+
+
+def test_list_tickets_category_filter_excludes_summary_and_category_counts(mock_db, as_user):
+    """Regresyon testi: kategori filtresi sadece count/items sorgularına
+    uygulanmalı — overall summary ve category_counts HER ZAMAN şirketin
+    TAMAMINI göstermeli (bkz. TicketListRead docstring'i), aksi halde
+    CategoryFilterBar/CategoryDistribution filtre uygulanınca yanlış sayı
+    gösterir."""
+    as_user("user_agent")
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
+
+    client = TestClient(app)
+    res = client.get("/tickets", params={"category": "REFUND"})
+
+    assert res.status_code == 200
+    count_sql = str(mock_db.execute.call_args_list[1][0][0].compile(compile_kwargs={"literal_binds": True}))
+    summary_sql = str(mock_db.execute.call_args_list[3][0][0].compile(compile_kwargs={"literal_binds": True}))
+    category_counts_sql = str(mock_db.execute.call_args_list[4][0][0].compile(compile_kwargs={"literal_binds": True}))
+    assert "REFUND" in count_sql
+    assert "REFUND" not in summary_sql
+    assert "REFUND" not in category_counts_sql
+
+
+def test_list_tickets_pagination_applies_offset(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
+
+    client = TestClient(app)
+    res = client.get("/tickets", params={"page": 2})
+
+    assert res.status_code == 200
+    items_sql = str(mock_db.execute.call_args_list[2][0][0].compile(compile_kwargs={"literal_binds": True}))
+    assert "OFFSET 50" in items_sql
+    assert res.json()["page"] == 2
+
+
+def test_get_ticket_includes_answered_and_pending_draft(mock_db, as_user):
+    as_user("user_agent")
     mock_db.get.return_value = _ticket(id=7)
-    mock_db.execute.return_value.scalar.return_value = True
+    mock_db.execute.side_effect = [
+        _result(scalar_one_or_none=_agent_row()),
+        _result(scalar=True),
+        _result(scalar=5),
+    ]
 
     client = TestClient(app)
     res = client.get("/tickets/7")
 
     assert res.status_code == 200
-    assert res.json()["is_answered"] is True
+    body = res.json()
+    assert body["is_answered"] is True
+    assert body["pending_draft_id"] == 5
 
 
-def test_get_ticket_reports_unanswered(mock_db, as_user):
+def test_get_ticket_reports_unanswered_and_no_pending_draft(mock_db, as_user):
     as_user("user_agent")
-    _as_agent(mock_db)
     mock_db.get.return_value = _ticket(id=8)
-    mock_db.execute.return_value.scalar.return_value = False
+    mock_db.execute.side_effect = [
+        _result(scalar_one_or_none=_agent_row()),
+        _result(scalar=False),
+        _result(scalar=None),
+    ]
 
     client = TestClient(app)
     res = client.get("/tickets/8")
 
     assert res.status_code == 200
-    assert res.json()["is_answered"] is False
+    body = res.json()
+    assert body["is_answered"] is False
+    assert body["pending_draft_id"] is None
 
 
 def test_get_ticket_404s_for_other_companys_ticket(mock_db, as_user):
     """Kiracı izolasyonu: başka bir şirketin talebi, var olduğu bile
     sızdırılmadan 404 vermeli (403 değil)."""
     as_user("user_agent")
-    _as_agent(mock_db, company_id=10)
+    mock_db.execute.side_effect = [_result(scalar_one_or_none=_agent_row(company_id=10))]
     mock_db.get.return_value = _ticket(id=99, company_id=999)
 
     client = TestClient(app)
@@ -157,15 +242,18 @@ def test_get_ticket_answered_query_is_scoped_to_this_ticket_only(mock_db, as_use
     bir talebin onaylı taslağı var mı" sorusuna dönüşüyordu, istenen talebe
     değil."""
     as_user("user_agent")
-    _as_agent(mock_db, company_id=10)
     mock_db.get.return_value = _ticket(id=7, company_id=10)
-    mock_db.execute.return_value.scalar.return_value = False
+    mock_db.execute.side_effect = [
+        _result(scalar_one_or_none=_agent_row(company_id=10)),
+        _result(scalar=False),
+        _result(scalar=None),
+    ]
 
     client = TestClient(app)
     res = client.get("/tickets/7")
 
     assert res.status_code == 200
-    stmt = mock_db.execute.call_args_list[-1][0][0]
+    stmt = mock_db.execute.call_args_list[1][0][0]
     compiled = str(stmt.compile(compile_kwargs={"literal_binds": True}))
     assert "tickets" not in compiled.lower()
     assert "7" in compiled

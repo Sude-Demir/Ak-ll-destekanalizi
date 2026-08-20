@@ -4,10 +4,10 @@ import { notFound } from "next/navigation";
 
 import DraftPanel from "@/components/DraftPanel";
 import StatusPill from "@/components/StatusPill";
-import { TICKET_STATUS_LABELS, TICKET_STATUS_STYLES } from "@/components/TicketsTable";
-import { fetchDrafts, fetchTicket } from "@/lib/api";
+import { fetchDrafts, fetchTicket, fetchTickets, type Ticket } from "@/lib/api";
 import { formatDate, t } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { TICKET_STATUS_LABELS, TICKET_STATUS_STYLES } from "@/lib/ticketStatus";
 
 export default async function TicketDetailPage({
   params,
@@ -31,6 +31,16 @@ export default async function TicketDetailPage({
     [ticket, drafts] = await Promise.all([fetchTicket(ticketId, token), fetchDrafts(ticketId, token)]);
   } catch {
     notFound();
+  }
+
+  // Aynı müşterinin diğer talepleri — bağlamsal bir bilgi, yüklenemezse
+  // sayfanın geri kalanını bozmasın diye ayrı bir try/catch'te.
+  let customerHistory: Ticket[] = [];
+  try {
+    const history = await fetchTickets(token, { customerEmail: ticket.customer_email });
+    customerHistory = history.items.filter((other) => other.id !== ticket.id);
+  } catch {
+    // Sessizce boş bırak.
   }
 
   return (
@@ -89,6 +99,37 @@ export default async function TicketDetailPage({
       </div>
 
       <DraftPanel ticketId={ticket.id} initialDrafts={drafts} />
+
+      {customerHistory.length > 0 && (
+        <div className="mt-8 rounded-xl border border-border bg-surface p-5 shadow-sm">
+          <p className="text-[11.5px] font-bold tracking-wide text-faint uppercase">
+            {t(locale, "ticketDetail.customerHistoryHeading")}
+          </p>
+          <ul className="mt-3 divide-y divide-border">
+            {customerHistory.map((other) => (
+              <li key={other.id}>
+                <Link
+                  href={`/dashboard/tickets/${other.id}`}
+                  className="flex items-center justify-between gap-3 py-2.5 hover:text-accent"
+                >
+                  <span className="min-w-0 truncate text-[13px] text-foreground">{other.subject}</span>
+                  <span className="flex shrink-0 items-center gap-2.5">
+                    <StatusPill
+                      label={other.is_answered ? t(locale, "ticketsTable.answered") : t(locale, "ticketsTable.unanswered")}
+                      className={
+                        other.is_answered
+                          ? "bg-status-done-bg text-status-done-fg"
+                          : "bg-status-open-bg text-status-open-fg"
+                      }
+                    />
+                    <span className="text-[12px] tabular-nums text-faint">{formatDate(other.created_at, locale)}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </main>
   );
 }
