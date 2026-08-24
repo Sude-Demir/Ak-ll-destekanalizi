@@ -45,6 +45,7 @@ def submit_support_request(slug: str, payload: PublicTicketCreate, db: Session =
         subject=payload.subject,
         body=payload.body,
         channel="form",
+        is_lead=False,
     )
     db.add(ticket)
     db.commit()

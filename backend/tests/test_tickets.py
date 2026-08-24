@@ -173,6 +173,79 @@ def test_list_tickets_category_filter_excludes_summary_and_category_counts(mock_
     assert "REFUND" not in category_counts_sql
 
 
+def test_list_tickets_channel_filter(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
+
+    client = TestClient(app)
+    res = client.get("/tickets", params={"channel": "form"})
+
+    assert res.status_code == 200
+    count_sql = str(mock_db.execute.call_args_list[1][0][0].compile(compile_kwargs={"literal_binds": True}))
+    assert "'form'" in count_sql
+
+
+def test_list_tickets_answered_filter_true_uses_exists(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
+
+    client = TestClient(app)
+    res = client.get("/tickets", params={"is_answered": "true"})
+
+    assert res.status_code == 200
+    count_sql = str(mock_db.execute.call_args_list[1][0][0].compile(compile_kwargs={"literal_binds": True}))
+    assert "EXISTS" in count_sql
+    assert "NOT (EXISTS" not in count_sql
+
+
+def test_list_tickets_answered_filter_false_negates_exists(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
+
+    client = TestClient(app)
+    res = client.get("/tickets", params={"is_answered": "false"})
+
+    assert res.status_code == 200
+    count_sql = str(mock_db.execute.call_args_list[1][0][0].compile(compile_kwargs={"literal_binds": True}))
+    assert "NOT (EXISTS" in count_sql
+
+
+def test_list_tickets_sort_oldest_orders_ascending(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
+
+    client = TestClient(app)
+    res = client.get("/tickets", params={"sort": "oldest"})
+
+    assert res.status_code == 200
+    items_sql = str(mock_db.execute.call_args_list[2][0][0].compile(compile_kwargs={"literal_binds": True}))
+    assert "ORDER BY tickets.created_at ASC" in items_sql
+
+
+def test_list_tickets_lead_filter(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
+
+    client = TestClient(app)
+    res = client.get("/tickets", params={"is_lead": "true"})
+
+    assert res.status_code == 200
+    count_sql = str(mock_db.execute.call_args_list[1][0][0].compile(compile_kwargs={"literal_binds": True}))
+    assert "tickets.is_lead = true" in count_sql
+
+
+def test_list_tickets_sort_defaults_to_newest(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
+
+    client = TestClient(app)
+    res = client.get("/tickets")
+
+    assert res.status_code == 200
+    items_sql = str(mock_db.execute.call_args_list[2][0][0].compile(compile_kwargs={"literal_binds": True}))
+    assert "ORDER BY tickets.created_at DESC" in items_sql
+
+
 def test_list_tickets_pagination_applies_offset(mock_db, as_user):
     as_user("user_agent")
     mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())

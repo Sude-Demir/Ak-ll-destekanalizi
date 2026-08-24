@@ -58,20 +58,35 @@ export default async function CategoryFilterBar({
   overallTotal,
   activeCategory,
   activeQuery,
+  activeAnswered,
+  activeChannel,
+  activeSort,
+  activeLead,
 }: {
   categoryCounts: Record<string, number>;
   overallTotal: number;
   activeCategory: string | null;
   activeQuery: string | null;
+  activeAnswered: string | null;
+  activeChannel: string | null;
+  activeSort: string | null;
+  activeLead: string | null;
 }) {
   const locale = await getLocale();
   const counts = fixedCategoryCounts(categoryCounts, locale);
+  const shared = {
+    q: activeQuery,
+    answered: activeAnswered,
+    channel: activeChannel,
+    sort: activeSort,
+    lead: activeLead,
+  };
 
   return (
     <nav aria-label={t(locale, "categoryFilter.ariaLabel")} className="mt-6">
       <div role="group" className="flex gap-2 overflow-x-auto pb-1.5">
         <FilterChip
-          href={buildDashboardHref({ q: activeQuery })}
+          href={buildDashboardHref(shared)}
           label={t(locale, "categoryFilter.all")}
           count={overallTotal}
           active={activeCategory === null}
@@ -80,7 +95,7 @@ export default async function CategoryFilterBar({
         {counts.map(({ key, label, count }) => (
           <FilterChip
             key={key}
-            href={buildDashboardHref({ category: key, q: activeQuery })}
+            href={buildDashboardHref({ ...shared, category: key })}
             label={label}
             count={count}
             active={activeCategory === key}

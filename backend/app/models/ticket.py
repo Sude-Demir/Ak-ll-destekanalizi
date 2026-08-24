@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -20,6 +20,11 @@ class Ticket(Base):
     channel: Mapped[str] = mapped_column(String(50), default="email")
     # Hafta 3'te sınıflandırma servisi tarafından doldurulacak; şimdilik boş kalabilir.
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Sınıflandırmayla AYNI LLM çağrısında dolduruluyor (bkz.
+    # app.services.classification.ClassificationResult) — talep bir destek
+    # sorunundan çok bir satış fırsatı (toplu alım, kurumsal teklif vb.) gibi
+    # görünüyorsa true. category gibi henüz sınıflandırılmamışsa varsayılan false.
+    is_lead: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     status: Mapped[str] = mapped_column(String(50), default="open", index=True)
     # Talebi giriş yapmış bir müşteri portalından (bkz. app.routers.me) gönderdiyse
     # Clerk kullanıcı kimliği burada tutulur — "kendi taleplerim" sorgusu için.

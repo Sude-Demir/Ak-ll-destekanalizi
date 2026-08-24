@@ -79,15 +79,23 @@ def list_tickets(
     q: str | None = None,
     category: str | None = None,
     customer_email: str | None = None,
+    channel: str | None = None,
+    is_answered: bool | None = None,
+    is_lead: bool | None = None,
+    sort: str = "newest",
     page: int = 1,
     agent: Agent = Depends(require_agent),
     db: Session = Depends(get_db),
 ) -> TicketListRead:
-    """Temsilcinin KENDİ şirketine ait talepleri en yeniden eskiye doğru,
-    isteğe bağlı arama/kategori/müşteri filtresiyle ve sayfalanmış olarak
-    listeler (bkz. CLAUDE.md "İnsan onaylı akış" ve plan "RAG izolasyonu" —
-    aynı prensip talep listesi için de geçerli). Yanıt ayrıca bu filtrelerden
-    bağımsız bir şirket-geneli özet taşır (bkz. TicketListRead)."""
+    """Temsilcinin KENDİ şirketine ait talepleri isteğe bağlı arama/kategori/
+    müşteri/kanal/cevap-durumu/lead filtresiyle ve sayfalanmış olarak listeler
+    (bkz. CLAUDE.md "İnsan onaylı akış" ve plan "RAG izolasyonu" — aynı
+    prensip talep listesi için de geçerli). `sort` "newest" (varsayılan) ya da
+    "oldest" olabilir, tanınmayan bir değer sessizce "newest"e düşer — tıpkı
+    `category` gibi bilinmeyen bir filtre değerinin sessizce boş sonuç
+    dönmesi gibi, burada da frontend geçerli değerleri zaten kısıtlıyor.
+    Yanıt ayrıca bu filtrelerden bağımsız bir şirket-geneli özet taşır (bkz.
+    TicketListRead)."""
     filters = [Ticket.company_id == agent.company_id]
     if q:
         like = f"%{q}%"
@@ -96,9 +104,16 @@ def list_tickets(
         filters.append(Ticket.category == category)
     if customer_email:
         filters.append(Ticket.customer_email == customer_email)
+    if channel:
+        filters.append(Ticket.channel == channel)
+    if is_answered is not None:
+        filters.append(answered_exists_clause() if is_answered else ~answered_exists_clause())
+    if is_lead is not None:
+        filters.append(Ticket.is_lead == is_lead)
 
     total = db.execute(select(func.count()).select_from(Ticket).filter(*filters)).scalar() or 0
 
+    order_by = Ticket.created_at.asc() if sort == "oldest" else Ticket.created_at.desc()
     stmt = (
         select(
             Ticket,
@@ -106,7 +121,7 @@ def list_tickets(
             pending_draft_id_clause().label("pending_draft_id"),
         )
         .filter(*filters)
-        .order_by(Ticket.created_at.desc())
+        .order_by(order_by)
         .offset((page - 1) * PAGE_SIZE)
         .limit(PAGE_SIZE)
     )

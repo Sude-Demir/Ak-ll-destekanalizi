@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -27,6 +27,9 @@ class DraftResponse(Base):
     retrieved_context: Mapped[list] = mapped_column(JSON)
     # bkz. app.services.confidence.compute_confidence
     confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Taslak yazılırken model, sağlanan get_customer_ticket_history aracını
+    # gerçekten çağırdı mı (bkz. app.services.draft_generation) — izlenebilirlik.
+    used_customer_history: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     status: Mapped[str] = mapped_column(String(50), default="pending", index=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

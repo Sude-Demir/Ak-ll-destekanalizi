@@ -42,7 +42,9 @@ def create_draft(
     ticket = _get_own_ticket(ticket_id, agent, db)
 
     if ticket.category is None:
-        ticket.category = classify_ticket(ticket.subject, ticket.body)
+        classification = classify_ticket(ticket.subject, ticket.body)
+        ticket.category = classification.category
+        ticket.is_lead = classification.is_lead
 
     result = generate_draft(ticket, db)
 
@@ -51,6 +53,7 @@ def create_draft(
         draft_text=result.draft_text,
         retrieved_context=result.retrieved_context,
         confidence_score=result.confidence_score,
+        used_customer_history=result.used_customer_history,
         status="pending",
     )
     db.add(draft)
@@ -183,7 +186,9 @@ def bulk_generate_drafts(
         ticket = db.get(Ticket, ticket_id)
         try:
             if ticket.category is None:
-                ticket.category = classify_ticket(ticket.subject, ticket.body)
+                classification = classify_ticket(ticket.subject, ticket.body)
+                ticket.category = classification.category
+                ticket.is_lead = classification.is_lead
             result = generate_draft(ticket, db)
         except genai_errors.APIError:
             failed.append(ticket_id)
@@ -195,6 +200,7 @@ def bulk_generate_drafts(
                 draft_text=result.draft_text,
                 retrieved_context=result.retrieved_context,
                 confidence_score=result.confidence_score,
+                used_customer_history=result.used_customer_history,
                 status="pending",
             )
         )

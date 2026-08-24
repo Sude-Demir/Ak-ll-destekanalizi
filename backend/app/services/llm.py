@@ -8,7 +8,7 @@ CLAUDE.md'nin "ince soyutlama, ağır framework değil" prensibine uygun: tüm L
 import time
 
 from google import genai
-from google.genai import errors
+from google.genai import errors, types
 
 from app.config import settings
 
@@ -39,17 +39,15 @@ def _get_client() -> genai.Client:
     return _client
 
 
-def call_llm(prompt: str, context: str = "") -> str:
-    """`prompt` (görev talimatı) ve `context`i (ilgili veri) birleştirip Gemini'ye
-    gönderir, üretilen metni döner. Geçici sunucu hatalarında (503) birkaç kez
-    yeniden dener."""
+def _generate_with_retries(contents: str, config: types.GenerateContentConfig | None = None) -> str:
+    """`call_llm` ve `call_llm_with_tools`in paylaştığı asıl çağrı + yeniden
+    deneme mantığı — ikisi de aynı geçici hata toleransını göstermeli."""
     client = _get_client()
-    full_prompt = f"{prompt}\n\n{context}" if context else prompt
 
     last_error: errors.APIError | None = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            response = client.models.generate_content(model=CHAT_MODEL, contents=full_prompt)
+            response = client.models.generate_content(model=CHAT_MODEL, contents=contents, config=config)
             return response.text
         except errors.ServerError as e:
             last_error = e
@@ -63,3 +61,26 @@ def call_llm(prompt: str, context: str = "") -> str:
                 raise
 
     raise last_error
+
+
+def call_llm(prompt: str, context: str = "") -> str:
+    """`prompt` (görev talimatı) ve `context`i (ilgili veri) birleştirip Gemini'ye
+    gönderir, üretilen metni döner. Geçici sunucu hatalarında (503) birkaç kez
+    yeniden dener."""
+    full_prompt = f"{prompt}\n\n{context}" if context else prompt
+    return _generate_with_retries(full_prompt)
+
+
+def call_llm_with_tools(prompt: str, context: str, tools: list) -> str:
+    """`call_llm` ile aynı, ama modele gerçek Python fonksiyonlarını "araç"
+    olarak sunar (bkz. app.services.draft_generation) — model gerekli
+    görürse bunlardan birini KENDİSİ çağırabilir.
+
+    `tools`, düz Python fonksiyonlarından oluşan bir liste olmalı (google-genai
+    SDK'sının "otomatik fonksiyon çağırma" özelliği): SDK, fonksiyonun
+    imzasından ve docstring'inden şemayı kendisi çıkarır, model bir çağrı
+    isterse fonksiyonu kendisi çalıştırıp sonucu modele geri gönderir — bizim
+    elle bir çağrı döngüsü yazmamıza gerek kalmaz."""
+    full_prompt = f"{prompt}\n\n{context}" if context else prompt
+    config = types.GenerateContentConfig(tools=tools)
+    return _generate_with_retries(full_prompt, config=config)

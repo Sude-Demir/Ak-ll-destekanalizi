@@ -6,6 +6,7 @@ export interface Ticket {
   body: string;
   channel: string;
   category: string | null;
+  is_lead: boolean;
   status: string;
   created_at: string;
   updated_at: string;
@@ -32,6 +33,10 @@ export interface FetchTicketsParams {
   q?: string;
   category?: string;
   customerEmail?: string;
+  channel?: string;
+  isAnswered?: boolean;
+  isLead?: boolean;
+  sort?: "newest" | "oldest";
   page?: number;
 }
 
@@ -49,6 +54,7 @@ export interface DraftResponse {
   draft_text: string;
   retrieved_context: RetrievedContextItem[];
   confidence_score: number | null;
+  used_customer_history: boolean;
   status: string;
   needs_escalation: boolean;
   created_at: string;
@@ -71,6 +77,10 @@ export async function fetchTickets(token: string | null, params: FetchTicketsPar
   if (params.q) searchParams.set("q", params.q);
   if (params.category) searchParams.set("category", params.category);
   if (params.customerEmail) searchParams.set("customer_email", params.customerEmail);
+  if (params.channel) searchParams.set("channel", params.channel);
+  if (params.isAnswered !== undefined) searchParams.set("is_answered", String(params.isAnswered));
+  if (params.isLead !== undefined) searchParams.set("is_lead", String(params.isLead));
+  if (params.sort) searchParams.set("sort", params.sort);
   if (params.page) searchParams.set("page", String(params.page));
   const qs = searchParams.toString();
 

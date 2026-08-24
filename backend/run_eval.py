@@ -79,7 +79,7 @@ def run_eval(db: Session) -> tuple[list[EvalResult], bool]:
             continue
 
         try:
-            predicted_category = classify_ticket(ticket.subject, ticket.body)
+            predicted_category = classify_ticket(ticket.subject, ticket.body).category
             draft = generate_draft(ticket, db)
         except errors.APIError as e:
             print(f"\nAPI hatası (muhtemelen günlük kota doldu): {e}")

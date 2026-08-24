@@ -18,6 +18,7 @@ class TicketRead(BaseModel):
     body: str
     channel: str
     category: str | None
+    is_lead: bool = False
     status: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
@@ -44,6 +45,7 @@ class DraftResponseRead(BaseModel):
     draft_text: str
     retrieved_context: list[dict]
     confidence_score: float | None
+    used_customer_history: bool = False
     status: str
     created_at: datetime.datetime
     updated_at: datetime.datetime

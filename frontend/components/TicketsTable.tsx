@@ -143,7 +143,15 @@ export default function TicketsTable({
                 />
               </div>
               <Link href={`/dashboard/tickets/${ticket.id}`} role="cell" className="min-w-0">
-                <div className="truncate text-[13.8px] font-semibold text-foreground">{ticket.subject}</div>
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-[13.8px] font-semibold text-foreground">{ticket.subject}</span>
+                  {ticket.is_lead && (
+                    <StatusPill
+                      label={t("ticketsTable.leadBadge")}
+                      className="shrink-0 bg-accent-soft text-accent"
+                    />
+                  )}
+                </div>
                 <div className="truncate text-[12.5px] text-muted">
                   {ticket.customer_name} · {ticket.customer_email}
                 </div>

@@ -45,6 +45,7 @@ def receive_inbound_email(payload: InboundEmailPayload, db: Session = Depends(ge
         subject=payload.Subject or "(konu belirtilmemiş)",
         body=payload.TextBody,
         channel="email",
+        is_lead=False,
     )
     db.add(ticket)
     db.commit()

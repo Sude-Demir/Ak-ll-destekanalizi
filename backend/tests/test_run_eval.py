@@ -3,7 +3,12 @@ from unittest.mock import MagicMock, patch
 from google.genai import errors
 
 import run_eval
+from app.services.classification import ClassificationResult
 from run_eval import EvalResult, print_summary, run_eval as run_eval_fn
+
+
+def _classification(category: str) -> ClassificationResult:
+    return ClassificationResult(category=category, is_lead=False)
 
 
 def _fake_example(ticket_id: int, expected_category: str) -> MagicMock:
@@ -38,7 +43,7 @@ def test_run_eval_marks_correct_and_incorrect_predictions(tmp_path):
     with (
         patch.object(run_eval, "PROGRESS_FILE", tmp_path / "progress.json"),
         patch("run_eval.time.sleep"),
-        patch("run_eval.classify_ticket", side_effect=["REFUND", "PAYMENT"]),
+        patch("run_eval.classify_ticket", side_effect=[_classification("REFUND"), _classification("PAYMENT")]),
         patch("run_eval.generate_draft", side_effect=[_fake_draft(0.8), _fake_draft(0.3)]),
     ):
         results, completed = run_eval_fn(db)
@@ -80,7 +85,7 @@ def test_run_eval_stops_gracefully_on_api_error_and_keeps_partial_progress(tmp_p
     with (
         patch.object(run_eval, "PROGRESS_FILE", tmp_path / "progress.json"),
         patch("run_eval.time.sleep"),
-        patch("run_eval.classify_ticket", side_effect=["REFUND", _api_error()]),
+        patch("run_eval.classify_ticket", side_effect=[_classification("REFUND"), _api_error()]),
         patch("run_eval.generate_draft", side_effect=[_fake_draft(0.8)]),
     ):
         results, completed = run_eval_fn(db)
@@ -106,7 +111,7 @@ def test_run_eval_resumes_from_saved_progress_without_recalling_llm(tmp_path):
     with (
         patch.object(run_eval, "PROGRESS_FILE", progress_file),
         patch("run_eval.time.sleep"),
-        patch("run_eval.classify_ticket", return_value="ORDER") as mock_classify,
+        patch("run_eval.classify_ticket", return_value=_classification("ORDER")) as mock_classify,
         patch("run_eval.generate_draft", return_value=_fake_draft(0.9)),
     ):
         results, completed = run_eval_fn(db)

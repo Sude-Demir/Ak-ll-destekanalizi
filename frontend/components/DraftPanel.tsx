@@ -97,6 +97,10 @@ function DraftCard({
           </div>
         )}
 
+        {draft.used_customer_history && (
+          <p className="mt-3 text-[12px] text-muted">{t("draftPanel.usedCustomerHistory")}</p>
+        )}
+
         {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}
 
         {isPending && (

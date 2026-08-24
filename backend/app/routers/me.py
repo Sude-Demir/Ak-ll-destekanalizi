@@ -73,6 +73,7 @@ def create_my_ticket(
         subject=payload.subject,
         body=payload.body,
         channel="portal",
+        is_lead=False,
         submitted_by_user_id=clerk_user_id,
     )
     db.add(ticket)

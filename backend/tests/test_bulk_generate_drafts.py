@@ -7,6 +7,7 @@ from google.genai import errors as genai_errors
 
 from app.auth import require_auth
 from app.db.database import get_db
+from app.services.classification import ClassificationResult
 from app.services.draft_generation import DraftResult
 from main import app
 
@@ -109,7 +110,10 @@ def test_bulk_generate_creates_draft_for_ticket_without_one(mock_db, as_user):
 
     draft_result = DraftResult(draft_text="Merhaba...", retrieved_context=[], confidence_score=0.8)
     with (
-        patch("app.routers.drafts.classify_ticket", return_value="ACCOUNT"),
+        patch(
+            "app.routers.drafts.classify_ticket",
+            return_value=ClassificationResult(category="ACCOUNT", is_lead=False),
+        ),
         patch("app.routers.drafts.generate_draft", return_value=draft_result),
     ):
         client = TestClient(app)
@@ -143,7 +147,10 @@ def test_bulk_generate_marks_quota_error_as_failed_and_continues(mock_db, as_use
     }
     quota_error = genai_errors.APIError(429, mock_response)
     with (
-        patch("app.routers.drafts.classify_ticket", return_value="ACCOUNT"),
+        patch(
+            "app.routers.drafts.classify_ticket",
+            return_value=ClassificationResult(category="ACCOUNT", is_lead=False),
+        ),
         patch("app.routers.drafts.generate_draft", side_effect=quota_error),
     ):
         client = TestClient(app)

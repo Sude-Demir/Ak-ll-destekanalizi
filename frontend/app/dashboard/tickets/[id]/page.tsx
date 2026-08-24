@@ -62,10 +62,15 @@ export default async function TicketDetailPage({
               {ticket.customer_name} · {ticket.customer_email}
             </p>
           </div>
-          <StatusPill
-            label={TICKET_STATUS_LABELS[locale][ticket.status] ?? ticket.status}
-            className={TICKET_STATUS_STYLES[ticket.status] ?? "bg-surface-2 text-muted"}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            {ticket.is_lead && (
+              <StatusPill label={t(locale, "ticketsTable.leadBadge")} className="bg-accent-soft text-accent" />
+            )}
+            <StatusPill
+              label={TICKET_STATUS_LABELS[locale][ticket.status] ?? ticket.status}
+              className={TICKET_STATUS_STYLES[ticket.status] ?? "bg-surface-2 text-muted"}
+            />
+          </div>
         </div>
 
         <p className="mt-4 whitespace-pre-wrap rounded-lg border border-border bg-surface-2 p-4 text-[14px] text-foreground">
