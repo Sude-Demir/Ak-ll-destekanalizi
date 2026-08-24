@@ -21,22 +21,6 @@ function Chip({ href, label, active }: { href: string; label: string; active: bo
   );
 }
 
-// Aşağı ok = en yeni önce (varsayılan), yukarı ok (180° döndürülmüş) = en
-// eski önce — ThemeSwitcher.tsx'teki gibi kütüphanesiz, inline SVG.
-function SortIcon({ ascending }: { ascending: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      className={`h-3.5 w-3.5 shrink-0 transition-transform ${ascending ? "rotate-180" : ""}`}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-    >
-      <path d="M8 2.5v11M8 13.5 4.5 10M8 13.5 11.5 10" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 // "twitter" seed veride (Kaggle ingest, scripts/ingest_kaggle_tickets.py) 300
 // talebin tamamının kanalı — email/form/portal ise sonradan eklenen gerçek
 // giriş yolları (bkz. CLAUDE.md "Mevcut Aşama"). Dördü de burada listeleniyor.
@@ -49,14 +33,14 @@ const CHANNEL_LABEL_KEYS = {
   portal: "ticketFilterBar.channelPortal",
 } as const;
 
-/** Cevap durumu, kanal, lead ve sıralama için CategoryFilterBar'a paralel
- * çalışan, URL query-state'i (?answered=&channel=&lead=&sort=) üzerinden
- * işleyen ikinci bir filtre çubuğu — istemci state'i gerektirmez.
+/** Cevap durumu, kanal, lead, aciliyet ve sıralama için CategoryFilterBar'a
+ * paralel çalışan, URL query-state'i (?answered=&channel=&lead=&urgent=&sort=)
+ * üzerinden işleyen ikinci bir filtre çubuğu — istemci state'i gerektirmez.
  * CategoryFilterBar zaten kategoriyi ve sayıları gösterdiği için burada
  * sadece bu yeni boyutlara yer verilir, kategori/arama aktif değeri sadece
  * diğer filtreler değişince korunsun diye taşınır (bkz. buildDashboardHref).
  * Her chip/link, DEĞİŞTİRMEDİĞİ diğer tüm boyutları da elden geçirip iletir
- * — aksi halde örn. kanal seçmek lead filtresini sessizce sıfırlardı. */
+ * — aksi halde örn. kanal seçmek lead/aciliyet filtresini sessizce sıfırlardı. */
 export default async function TicketFilterBar({
   activeCategory,
   activeQuery,
@@ -64,6 +48,7 @@ export default async function TicketFilterBar({
   activeChannel,
   activeSort,
   activeLead,
+  activeUrgent,
 }: {
   activeCategory: string | null;
   activeQuery: string | null;
@@ -71,17 +56,23 @@ export default async function TicketFilterBar({
   activeChannel: string | null;
   activeSort: string | null;
   activeLead: string | null;
+  activeUrgent: string | null;
 }) {
   const locale = await getLocale();
   const shared = { category: activeCategory, q: activeQuery };
-  const isOldest = activeSort === "oldest";
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
       <nav aria-label={t(locale, "ticketFilterBar.answeredAriaLabel")} className="flex items-center gap-1.5">
         <span className="text-[12px] font-semibold text-faint">{t(locale, "ticketsTable.answer")}</span>
         <Chip
-          href={buildDashboardHref({ ...shared, channel: activeChannel, sort: activeSort, lead: activeLead })}
+          href={buildDashboardHref({
+            ...shared,
+            channel: activeChannel,
+            sort: activeSort,
+            lead: activeLead,
+            urgent: activeUrgent,
+          })}
           label={t(locale, "categoryFilter.all")}
           active={activeAnswered === null}
         />
@@ -91,6 +82,7 @@ export default async function TicketFilterBar({
             channel: activeChannel,
             sort: activeSort,
             lead: activeLead,
+            urgent: activeUrgent,
             answered: "true",
           })}
           label={t(locale, "ticketsTable.answered")}
@@ -102,6 +94,7 @@ export default async function TicketFilterBar({
             channel: activeChannel,
             sort: activeSort,
             lead: activeLead,
+            urgent: activeUrgent,
             answered: "false",
           })}
           label={t(locale, "ticketsTable.unanswered")}
@@ -112,7 +105,13 @@ export default async function TicketFilterBar({
       <nav aria-label={t(locale, "ticketFilterBar.channelAriaLabel")} className="flex items-center gap-1.5">
         <span className="text-[12px] font-semibold text-faint">{t(locale, "ticketsTable.channel")}</span>
         <Chip
-          href={buildDashboardHref({ ...shared, answered: activeAnswered, sort: activeSort, lead: activeLead })}
+          href={buildDashboardHref({
+            ...shared,
+            answered: activeAnswered,
+            sort: activeSort,
+            lead: activeLead,
+            urgent: activeUrgent,
+          })}
           label={t(locale, "categoryFilter.all")}
           active={activeChannel === null}
         />
@@ -124,6 +123,7 @@ export default async function TicketFilterBar({
               answered: activeAnswered,
               sort: activeSort,
               lead: activeLead,
+              urgent: activeUrgent,
               channel,
             })}
             label={t(locale, CHANNEL_LABEL_KEYS[channel])}
@@ -135,7 +135,13 @@ export default async function TicketFilterBar({
       <nav aria-label={t(locale, "ticketFilterBar.leadAriaLabel")} className="flex items-center gap-1.5">
         <span className="text-[12px] font-semibold text-faint">{t(locale, "ticketFilterBar.leadLabel")}</span>
         <Chip
-          href={buildDashboardHref({ ...shared, answered: activeAnswered, channel: activeChannel, sort: activeSort })}
+          href={buildDashboardHref({
+            ...shared,
+            answered: activeAnswered,
+            channel: activeChannel,
+            sort: activeSort,
+            urgent: activeUrgent,
+          })}
           label={t(locale, "categoryFilter.all")}
           active={activeLead === null}
         />
@@ -145,6 +151,7 @@ export default async function TicketFilterBar({
             answered: activeAnswered,
             channel: activeChannel,
             sort: activeSort,
+            urgent: activeUrgent,
             lead: "true",
           })}
           label={t(locale, "ticketFilterBar.leadOnly")}
@@ -152,21 +159,71 @@ export default async function TicketFilterBar({
         />
       </nav>
 
-      <Link
-        href={buildDashboardHref({
-          ...shared,
-          answered: activeAnswered,
-          channel: activeChannel,
-          lead: activeLead,
-          sort: isOldest ? null : "oldest",
-        })}
-        aria-label={t(locale, "ticketFilterBar.sortAriaLabel")}
-        title={t(locale, "ticketFilterBar.sortAriaLabel")}
-        className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-[12.5px] font-semibold text-muted transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
-        <SortIcon ascending={isOldest} />
-        {t(locale, isOldest ? "ticketFilterBar.sortOldest" : "ticketFilterBar.sortNewest")}
-      </Link>
+      <nav aria-label={t(locale, "ticketFilterBar.urgentAriaLabel")} className="flex items-center gap-1.5">
+        <span className="text-[12px] font-semibold text-faint">{t(locale, "ticketFilterBar.urgentLabel")}</span>
+        <Chip
+          href={buildDashboardHref({
+            ...shared,
+            answered: activeAnswered,
+            channel: activeChannel,
+            sort: activeSort,
+            lead: activeLead,
+          })}
+          label={t(locale, "categoryFilter.all")}
+          active={activeUrgent === null}
+        />
+        <Chip
+          href={buildDashboardHref({
+            ...shared,
+            answered: activeAnswered,
+            channel: activeChannel,
+            sort: activeSort,
+            lead: activeLead,
+            urgent: "true",
+          })}
+          label={t(locale, "ticketFilterBar.urgentOnly")}
+          active={activeUrgent === "true"}
+        />
+      </nav>
+
+      <nav aria-label={t(locale, "ticketFilterBar.sortAriaLabel")} className="ml-auto flex items-center gap-1.5">
+        <span className="text-[12px] font-semibold text-faint">{t(locale, "ticketFilterBar.sortLabel")}</span>
+        <Chip
+          href={buildDashboardHref({
+            ...shared,
+            answered: activeAnswered,
+            channel: activeChannel,
+            lead: activeLead,
+            urgent: activeUrgent,
+          })}
+          label={t(locale, "ticketFilterBar.sortNewest")}
+          active={activeSort === null}
+        />
+        <Chip
+          href={buildDashboardHref({
+            ...shared,
+            answered: activeAnswered,
+            channel: activeChannel,
+            lead: activeLead,
+            urgent: activeUrgent,
+            sort: "oldest",
+          })}
+          label={t(locale, "ticketFilterBar.sortOldest")}
+          active={activeSort === "oldest"}
+        />
+        <Chip
+          href={buildDashboardHref({
+            ...shared,
+            answered: activeAnswered,
+            channel: activeChannel,
+            lead: activeLead,
+            urgent: activeUrgent,
+            sort: "priority",
+          })}
+          label={t(locale, "ticketFilterBar.sortPriority")}
+          active={activeSort === "priority"}
+        />
+      </nav>
     </div>
   );
 }

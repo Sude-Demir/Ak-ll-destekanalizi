@@ -29,6 +29,9 @@ function DraftCard({
   const [editedText, setEditedText] = useState(draft.draft_text);
   const [submitting, setSubmitting] = useState<"approved" | "edited" | "rejected" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+
+  const wasEdited = draft.status === "edited" && draft.draft_text !== draft.ai_original_text;
 
   const isPending = draft.status === "pending";
 
@@ -79,6 +82,26 @@ function DraftCard({
           <p className="whitespace-pre-wrap text-[14.5px] text-foreground">{draft.draft_text}</p>
         )}
 
+        {wasEdited && (
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setShowOriginal((prev) => !prev)}
+              className="text-[12.5px] font-semibold text-accent hover:underline"
+            >
+              {showOriginal ? t("draftPanel.hideOriginal") : t("draftPanel.showOriginal")}
+            </button>
+            {showOriginal && (
+              <div className="mt-2 rounded-lg border border-dashed border-border bg-surface-2 p-3">
+                <p className="text-[10.5px] font-bold uppercase tracking-wide text-faint">
+                  {t("draftPanel.originalHeading")}
+                </p>
+                <p className="mt-1.5 whitespace-pre-wrap text-[13.5px] text-muted">{draft.ai_original_text}</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {draft.retrieved_context.length > 0 && (
           <div className="mt-4 border-t border-border pt-3.5">
             <p className="text-[11.5px] font-bold tracking-wide text-faint uppercase">
@@ -99,6 +122,13 @@ function DraftCard({
 
         {draft.used_customer_history && (
           <p className="mt-3 text-[12px] text-muted">{t("draftPanel.usedCustomerHistory")}</p>
+        )}
+
+        {draft.customer_reaction && (
+          <p className="mt-3 text-[12px] text-muted">
+            {draft.customer_reaction === "up" ? "👍 " : "👎 "}
+            {t(draft.customer_reaction === "up" ? "draftPanel.customerReactionUp" : "draftPanel.customerReactionDown")}
+          </p>
         )}
 
         {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}

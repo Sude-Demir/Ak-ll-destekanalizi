@@ -14,6 +14,12 @@
   --accent-strong: #5c2c46;
   --accent-soft: #f5e7ee;
 
+  /* supportIQ marka/logo rengi — "IQ" vurgusu ve landing page'in teknoloji
+     hissi veren ikincil aksanı. Bilinçli olarak tek/sabit bir değer: --accent
+     (bordo) gibi açık/koyu tema arasında değişmiyor, marka kimliği (logo)
+     nasıl olsa değişmemeli. */
+  --accent-tech: #6c63ff;
+
   --status-open-bg: #fdeedd;
   --status-open-fg: #9a5b12;
   --status-wait-bg: #e7ecfb;
@@ -50,6 +56,7 @@
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-tech: var(--accent-tech);
 
   --color-status-open-bg: var(--status-open-bg);
   --color-status-open-fg: var(--status-open-fg);

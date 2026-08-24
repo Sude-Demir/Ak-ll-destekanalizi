@@ -22,6 +22,12 @@ class DraftResponse(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     ticket_id: Mapped[int] = mapped_column(ForeignKey("tickets.id"), index=True)
     draft_text: Mapped[str] = mapped_column(Text)
+    # AI'nin ilk ürettiği metnin değişmez kopyası — draft_text bir temsilci
+    # tarafından düzenlenirse üzerine yazılır, bu alan hep orijinal kalır.
+    # Oluşturulduğu anda draft_text ile aynı değerle set edilir (bkz.
+    # app.routers.drafts create_draft/bulk_generate_drafts), böylece ikinci
+    # bir düzenlemede "gerçek orijinal" kaybolmaz — üzerine yazma mantığı yok.
+    ai_original_text: Mapped[str] = mapped_column(Text)
     # Taslağın dayandığı SSS parçalarının içerik kopyası (izlenebilirlik için).
     # bkz. app.services.draft_generation.DraftResult.retrieved_context
     retrieved_context: Mapped[list] = mapped_column(JSON)
@@ -31,6 +37,10 @@ class DraftResponse(Base):
     # gerçekten çağırdı mı (bkz. app.services.draft_generation) — izlenebilirlik.
     used_customer_history: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     status: Mapped[str] = mapped_column(String(50), default="pending", index=True)
+    # Müşterinin portalda bu yanıta verdiği hızlı tepki ("up"/"down") — AI
+    # kalitesi hakkında ekip dışından gelen ilk gerçek sinyal. Nullable:
+    # çoğu yanıt hiç tepki almaz, bu bir eksiklik değil normal durum.
+    customer_reaction: Mapped[str | None] = mapped_column(String(10), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

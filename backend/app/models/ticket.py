@@ -25,7 +25,15 @@ class Ticket(Base):
     # sorunundan çok bir satış fırsatı (toplu alım, kurumsal teklif vb.) gibi
     # görünüyorsa true. category gibi henüz sınıflandırılmamışsa varsayılan false.
     is_lead: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Aynı sınıflandırma çağrısında dolduruluyor (bkz. ClassificationResult.is_urgent)
+    # — müşteri belirgin şekilde sinirli/tehdit edici bir tonda yazmışsa ya da
+    # zamana duyarlı ciddi bir sorun bildiriyorsa true. is_lead ile aynı desen.
+    is_urgent: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     status: Mapped[str] = mapped_column(String(50), default="open", index=True)
+    # Talebi "üstlenmiş" temsilci — birden fazla temsilci aynı talep üzerinde
+    # çakışarak çalışmasın diye (bkz. app.routers.tickets update_ticket_assignment).
+    # Kimse üstlenmemişse NULL.
+    assigned_agent_id: Mapped[int | None] = mapped_column(ForeignKey("agents.id"), nullable=True, index=True)
     # Talebi giriş yapmış bir müşteri portalından (bkz. app.routers.me) gönderdiyse
     # Clerk kullanıcı kimliği burada tutulur — "kendi taleplerim" sorgusu için.
     # Anonim /support formundan veya e-posta webhook'undan gelen taleplerde NULL kalır.

@@ -25,19 +25,21 @@ export default async function DashboardPage({
     channel?: string;
     sort?: string;
     lead?: string;
+    urgent?: string;
     page?: string;
   }>;
 }) {
   const locale = await getLocale();
-  const { category, q, answered, channel, sort, lead, page: pageParam } = await searchParams;
+  const { category, q, answered, channel, sort, lead, urgent, page: pageParam } = await searchParams;
   // Bilinmeyen/bozuk bir query param'ı (?category=xyz) sessizce "Tümü"ye
   // düşer; filtre çubukları zaten sadece geçerli değerleri link olarak sunar.
   const activeCategory = category && isCategory(category) ? category : null;
   const activeQuery = q?.trim() ? q.trim() : null;
   const activeAnswered = answered === "true" || answered === "false" ? answered : null;
   const activeChannel = channel && CHANNELS.includes(channel) ? channel : null;
-  const activeSort = sort === "oldest" ? sort : null;
+  const activeSort = sort === "oldest" || sort === "priority" ? sort : null;
   const activeLead = lead === "true" ? lead : null;
+  const activeUrgent = urgent === "true" ? urgent : null;
   const page = Number(pageParam);
   const currentPage = Number.isInteger(page) && page > 0 ? page : 1;
 
@@ -54,7 +56,8 @@ export default async function DashboardPage({
       isAnswered: activeAnswered === null ? undefined : activeAnswered === "true",
       channel: activeChannel ?? undefined,
       isLead: activeLead === "true" ? true : undefined,
-      sort: activeSort === "oldest" ? "oldest" : undefined,
+      isUrgent: activeUrgent === "true" ? true : undefined,
+      sort: activeSort === "oldest" || activeSort === "priority" ? activeSort : undefined,
       page: currentPage,
     });
   } catch (error) {
@@ -92,6 +95,7 @@ export default async function DashboardPage({
             activeChannel={activeChannel}
             activeSort={activeSort}
             activeLead={activeLead}
+            activeUrgent={activeUrgent}
           />
           <TicketFilterBar
             activeCategory={activeCategory}
@@ -100,6 +104,7 @@ export default async function DashboardPage({
             activeChannel={activeChannel}
             activeSort={activeSort}
             activeLead={activeLead}
+            activeUrgent={activeUrgent}
           />
           <div className="mt-6">
             <TicketsTable
@@ -121,6 +126,7 @@ export default async function DashboardPage({
             channel={activeChannel}
             sort={activeSort}
             lead={activeLead}
+            urgent={activeUrgent}
           />
         </>
       ) : null}

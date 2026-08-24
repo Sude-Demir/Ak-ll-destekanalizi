@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from app.auth import require_auth
 from app.db.database import SessionLocal, get_db
 from app.models import Company, DraftResponse, Ticket
-from app.routers.analytics import _daily_ticket_counts, _draft_totals, _ticket_totals
+from app.routers.analytics import _daily_ticket_counts, _draft_totals, _draft_trend, _knowledge_gaps, _ticket_totals
 from app.schemas import DraftTotals
 from main import app
 
@@ -71,6 +71,7 @@ def test_get_analytics_returns_expected_shape(mock_db, as_user):
         _result(one=ticket_row),
         _result(one=draft_row),
         _result(all=daily_rows),
+        _result(all=[]),
     ]
 
     client = TestClient(app)
@@ -85,6 +86,7 @@ def test_get_analytics_returns_expected_shape(mock_db, as_user):
         {"date": "2017-11-30", "count": 3},
         {"date": "2017-12-01", "count": 2},
     ]
+    assert body["draft_trend"] == []
 
 
 def test_analytics_queries_are_scoped_to_own_company(mock_db, as_user):
@@ -99,6 +101,7 @@ def test_analytics_queries_are_scoped_to_own_company(mock_db, as_user):
         _result(scalar_one_or_none=_agent_row(company_id=42)),
         _result(one=ticket_row),
         _result(one=draft_row),
+        _result(all=[]),
         _result(all=[]),
     ]
 
@@ -172,7 +175,13 @@ def _ticket(db_session, company_id, **overrides):
 
 
 def _draft(db_session, ticket_id, **overrides):
-    base = dict(ticket_id=ticket_id, draft_text="Test taslak", retrieved_context=[], status="pending")
+    base = dict(
+        ticket_id=ticket_id,
+        draft_text="Test taslak",
+        ai_original_text="Test taslak",
+        retrieved_context=[],
+        status="pending",
+    )
     base.update(overrides)
     draft = DraftResponse(**base)
     db_session.add(draft)
@@ -251,5 +260,103 @@ def test_daily_ticket_counts_groups_by_day_and_company(db_session, two_companies
         assert matching[0].count == 2  # other_companys_ticket sayılmamalı
     finally:
         for t in (same_day, another_ticket, other_companys_ticket):
+            db_session.delete(t)
+        db_session.commit()
+
+
+def test_knowledge_gaps_groups_by_category_and_counts_escalations(db_session, two_companies):
+    mine, _other = two_companies
+    shipping_low = _ticket(db_session, mine.id, category="SHIPPING", subject="Kargom nerede?")
+    _draft(db_session, shipping_low.id, confidence_score=0.2)
+    shipping_high = _ticket(db_session, mine.id, category="SHIPPING", subject="Teslimat gecikti")
+    _draft(db_session, shipping_high.id, confidence_score=0.9)  # eskale değil
+    refund_null = _ticket(db_session, mine.id, category="REFUND", subject="Param ne zaman iade olur?")
+    _draft(db_session, refund_null.id, confidence_score=None)  # None de eskale sayılır
+
+    tickets = [shipping_low, shipping_high, refund_null]
+    try:
+        gaps = _knowledge_gaps(mine.id, db_session)
+        by_category = {g.category: g for g in gaps}
+        assert by_category["SHIPPING"].escalated_count == 1
+        assert by_category["SHIPPING"].total_count == 2
+        assert "Kargom nerede?" in by_category["SHIPPING"].sample_subjects
+        assert by_category["REFUND"].escalated_count == 1
+    finally:
+        for t in tickets:
+            db_session.query(DraftResponse).filter(DraftResponse.ticket_id == t.id).delete()
+            db_session.delete(t)
+        db_session.commit()
+
+
+def test_knowledge_gaps_excludes_categories_with_no_escalations(db_session, two_companies):
+    mine, _other = two_companies
+    ticket = _ticket(db_session, mine.id, category="PAYMENT")
+    _draft(db_session, ticket.id, confidence_score=0.95)
+
+    try:
+        gaps = _knowledge_gaps(mine.id, db_session)
+        assert all(g.category != "PAYMENT" for g in gaps)
+    finally:
+        db_session.query(DraftResponse).filter(DraftResponse.ticket_id == ticket.id).delete()
+        db_session.delete(ticket)
+        db_session.commit()
+
+
+def test_knowledge_gaps_never_crosses_company_boundary(db_session, two_companies):
+    mine, other = two_companies
+    my_ticket = _ticket(db_session, mine.id, category="ACCOUNT")
+    _draft(db_session, my_ticket.id, confidence_score=0.1)
+    other_ticket = _ticket(db_session, other.id, category="ACCOUNT")
+    _draft(db_session, other_ticket.id, confidence_score=0.1)
+
+    try:
+        gaps = _knowledge_gaps(mine.id, db_session)
+        assert len(gaps) == 1
+        assert gaps[0].escalated_count == 1  # other şirketin eskalasyonu sayılmamalı
+    finally:
+        for t in (my_ticket, other_ticket):
+            db_session.query(DraftResponse).filter(DraftResponse.ticket_id == t.id).delete()
+            db_session.delete(t)
+        db_session.commit()
+
+
+def test_draft_trend_aggregates_by_status_and_confidence(db_session, two_companies):
+    mine, _other = two_companies
+    ticket_a = _ticket(db_session, mine.id)
+    _draft(db_session, ticket_a.id, status="approved", confidence_score=0.9)
+    ticket_b = _ticket(db_session, mine.id)
+    _draft(db_session, ticket_b.id, status="rejected", confidence_score=0.3)
+
+    tickets = [ticket_a, ticket_b]
+    try:
+        trend = _draft_trend(mine.id, db_session)
+        assert len(trend) == 1  # ikisi de bugün oluşturuldu, tek gün
+        point = trend[0]
+        assert point.total == 2
+        assert point.approved == 1
+        assert point.rejected == 1
+        assert point.average_confidence == pytest.approx(0.6)
+        assert point.approval_rate == pytest.approx(0.5)  # DraftTotals'tan miras
+    finally:
+        for t in tickets:
+            db_session.query(DraftResponse).filter(DraftResponse.ticket_id == t.id).delete()
+            db_session.delete(t)
+        db_session.commit()
+
+
+def test_draft_trend_never_crosses_company_boundary(db_session, two_companies):
+    mine, other = two_companies
+    my_ticket = _ticket(db_session, mine.id)
+    _draft(db_session, my_ticket.id, status="approved", confidence_score=0.8)
+    other_ticket = _ticket(db_session, other.id)
+    _draft(db_session, other_ticket.id, status="approved", confidence_score=0.8)
+
+    try:
+        trend = _draft_trend(mine.id, db_session)
+        assert len(trend) == 1
+        assert trend[0].total == 1  # other şirketin taslağı sayılmamalı
+    finally:
+        for t in (my_ticket, other_ticket):
+            db_session.query(DraftResponse).filter(DraftResponse.ticket_id == t.id).delete()
             db_session.delete(t)
         db_session.commit()

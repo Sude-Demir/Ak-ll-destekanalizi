@@ -45,12 +45,14 @@ def create_draft(
         classification = classify_ticket(ticket.subject, ticket.body)
         ticket.category = classification.category
         ticket.is_lead = classification.is_lead
+        ticket.is_urgent = classification.is_urgent
 
     result = generate_draft(ticket, db)
 
     draft = DraftResponse(
         ticket_id=ticket.id,
         draft_text=result.draft_text,
+        ai_original_text=result.draft_text,
         retrieved_context=result.retrieved_context,
         confidence_score=result.confidence_score,
         used_customer_history=result.used_customer_history,
@@ -189,6 +191,7 @@ def bulk_generate_drafts(
                 classification = classify_ticket(ticket.subject, ticket.body)
                 ticket.category = classification.category
                 ticket.is_lead = classification.is_lead
+                ticket.is_urgent = classification.is_urgent
             result = generate_draft(ticket, db)
         except genai_errors.APIError:
             failed.append(ticket_id)
@@ -198,6 +201,7 @@ def bulk_generate_drafts(
             DraftResponse(
                 ticket_id=ticket.id,
                 draft_text=result.draft_text,
+                ai_original_text=result.draft_text,
                 retrieved_context=result.retrieved_context,
                 confidence_score=result.confidence_score,
                 used_customer_history=result.used_customer_history,

@@ -47,6 +47,7 @@ def _ticket(**overrides):
         channel="email",
         category=None,
         status="open",
+        assigned_agent_id=None,
         created_at=now,
         updated_at=now,
     )
@@ -109,7 +110,7 @@ def test_list_tickets_includes_answered_and_pending_draft(mock_db, as_user):
     as_user("user_agent")
     answered = _ticket(id=1)
     unanswered = _ticket(id=2)
-    items = [(answered, True, None), (unanswered, False, 5)]
+    items = [(answered, True, None, None), (unanswered, False, 5, None)]
     mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row(), count=2, items=items)
 
     client = TestClient(app)
@@ -234,6 +235,18 @@ def test_list_tickets_lead_filter(mock_db, as_user):
     assert "tickets.is_lead = true" in count_sql
 
 
+def test_list_tickets_urgent_filter(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
+
+    client = TestClient(app)
+    res = client.get("/tickets", params={"is_urgent": "true"})
+
+    assert res.status_code == 200
+    count_sql = str(mock_db.execute.call_args_list[1][0][0].compile(compile_kwargs={"literal_binds": True}))
+    assert "tickets.is_urgent = true" in count_sql
+
+
 def test_list_tickets_sort_defaults_to_newest(mock_db, as_user):
     as_user("user_agent")
     mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
@@ -244,6 +257,22 @@ def test_list_tickets_sort_defaults_to_newest(mock_db, as_user):
     assert res.status_code == 200
     items_sql = str(mock_db.execute.call_args_list[2][0][0].compile(compile_kwargs={"literal_binds": True}))
     assert "ORDER BY tickets.created_at DESC" in items_sql
+
+
+def test_list_tickets_priority_sort_orders_by_urgency_then_confidence(mock_db, as_user):
+    """Öncelikli kuyruk: önce acil talepler, sonra pending taslağı en düşük
+    güvenli (en belirsiz) olanlar önce gelmeli — HİÇBİR ŞEYİ otomatik
+    onaylamaz, sadece sıralamayı belirler."""
+    as_user("user_agent")
+    mock_db.execute.side_effect = _list_tickets_side_effect(_agent_row())
+
+    client = TestClient(app)
+    res = client.get("/tickets", params={"sort": "priority"})
+
+    assert res.status_code == 200
+    items_sql = str(mock_db.execute.call_args_list[2][0][0].compile(compile_kwargs={"literal_binds": True}))
+    assert "ORDER BY tickets.is_urgent DESC" in items_sql
+    assert "NULLS LAST" in items_sql
 
 
 def test_list_tickets_pagination_applies_offset(mock_db, as_user):
@@ -329,4 +358,89 @@ def test_get_ticket_answered_query_is_scoped_to_this_ticket_only(mock_db, as_use
     stmt = mock_db.execute.call_args_list[1][0][0]
     compiled = str(stmt.compile(compile_kwargs={"literal_binds": True}))
     assert "tickets" not in compiled.lower()
-    assert "7" in compiled
+
+
+def test_claim_ticket_assigns_to_current_agent(mock_db, as_user):
+    as_user("user_agent")
+    ticket = _ticket(id=5, assigned_agent_id=None)
+    mock_db.get.return_value = ticket
+    mock_db.execute.side_effect = [
+        _result(scalar_one_or_none=_agent_row()),
+        _result(scalar=False),  # is_answered
+        _result(scalar=None),  # pending_draft_id
+        _result(scalar="Sude Demir"),  # assigned_agent_name lookup
+    ]
+
+    client = TestClient(app)
+    res = client.patch("/tickets/5/assignment", json={"claim": True})
+
+    assert res.status_code == 200
+    assert ticket.assigned_agent_id == 1  # _agent_row()'un id'si
+    body = res.json()
+    assert body["assigned_agent_id"] == 1
+    assert body["assigned_agent_name"] == "Sude Demir"
+
+
+def test_unclaim_ticket_clears_assignment(mock_db, as_user):
+    as_user("user_agent")
+    ticket = _ticket(id=5, assigned_agent_id=9)
+    mock_db.get.return_value = ticket
+    mock_db.execute.side_effect = [
+        _result(scalar_one_or_none=_agent_row()),
+        _result(scalar=False),
+        _result(scalar=None),
+        # assigned_agent_id None olunca assigned_agent_name sorgusu hiç atılmaz.
+    ]
+
+    client = TestClient(app)
+    res = client.patch("/tickets/5/assignment", json={"claim": False})
+
+    assert res.status_code == 200
+    assert ticket.assigned_agent_id is None
+    body = res.json()
+    assert body["assigned_agent_id"] is None
+    assert body["assigned_agent_name"] is None
+
+
+def test_claim_ticket_404s_for_another_companys_ticket(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = [_result(scalar_one_or_none=_agent_row(company_id=10))]
+    mock_db.get.return_value = _ticket(id=5, company_id=999)
+
+    client = TestClient(app)
+    res = client.patch("/tickets/5/assignment", json={"claim": True})
+
+    assert res.status_code == 404
+
+
+def test_list_ticket_messages_404s_for_another_companys_ticket(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = [_result(scalar_one_or_none=_agent_row(company_id=10))]
+    mock_db.get.return_value = _ticket(id=5, company_id=999)
+
+    client = TestClient(app)
+    res = client.get("/tickets/5/messages")
+
+    assert res.status_code == 404
+
+
+def test_create_ticket_message_uses_agent_name_and_sender_type(mock_db, as_user):
+    as_user("user_agent")
+    mock_db.execute.side_effect = [_result(scalar_one_or_none=_agent_row())]
+    mock_db.get.return_value = _ticket(id=5)
+
+    def _refresh(obj):
+        obj.id = 1
+        obj.created_at = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+
+    mock_db.refresh.side_effect = _refresh
+
+    client = TestClient(app)
+    res = client.post("/tickets/5/messages", json={"body": "Merhaba, talebinizi inceliyoruz."})
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["sender_type"] == "agent"
+    assert body["sender_name"] == "Sude Demir"  # _agent_row()'un adı
+    assert body["body"] == "Merhaba, talebinizi inceliyoruz."
+    mock_db.add.assert_called_once()

@@ -105,3 +105,41 @@ def test_classify_tickets_batch_defaults_lead_to_false_when_pipe_missing():
         result = classification.classify_tickets_batch(_tickets(3))
 
     assert all(r.is_lead is False for r in result.values())
+
+
+def test_classify_ticket_detects_urgent():
+    response = "KATEGORİ: OTHER\nLEAD: HAYIR\nURGENT: EVET"
+    with patch("app.services.classification.call_llm", return_value=response):
+        result = classification.classify_ticket(
+            subject="Param çekildi ama siparişim yok!",
+            body="Hemen iade edin yoksa hesabımı kapatıp bankaya şikayet edeceğim.",
+        )
+
+    assert result == ClassificationResult(category="OTHER", is_lead=False, is_urgent=True)
+
+
+def test_classify_ticket_defaults_urgent_to_false_when_missing():
+    with patch("app.services.classification.call_llm", return_value="KATEGORİ: REFUND\nLEAD: HAYIR"):
+        result = classification.classify_ticket(subject="?", body="?")
+
+    assert result.is_urgent is False
+
+
+def test_classify_tickets_batch_parses_urgent_column():
+    response = "1: REFUND | HAYIR | EVET\n2: ORDER | HAYIR | HAYIR\n3: DELIVERY | EVET | EVET"
+    with patch("app.services.classification.call_llm", return_value=response):
+        result = classification.classify_tickets_batch(_tickets(3))
+
+    assert result == {
+        1: ClassificationResult(category="REFUND", is_lead=False, is_urgent=True),
+        2: ClassificationResult(category="ORDER", is_lead=False, is_urgent=False),
+        3: ClassificationResult(category="DELIVERY", is_lead=True, is_urgent=True),
+    }
+
+
+def test_classify_tickets_batch_defaults_urgent_to_false_when_column_missing():
+    response = "1: REFUND | HAYIR\n2: ORDER | EVET\n3: DELIVERY | HAYIR"
+    with patch("app.services.classification.call_llm", return_value=response):
+        result = classification.classify_tickets_batch(_tickets(3))
+
+    assert all(r.is_urgent is False for r in result.values())

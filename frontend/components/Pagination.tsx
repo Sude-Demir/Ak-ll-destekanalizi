@@ -14,6 +14,7 @@ export default async function Pagination({
   channel,
   sort,
   lead,
+  urgent,
 }: {
   page: number;
   pageSize: number;
@@ -24,12 +25,13 @@ export default async function Pagination({
   channel: string | null;
   sort: string | null;
   lead: string | null;
+  urgent: string | null;
 }) {
   const totalPages = Math.ceil(total / pageSize);
   if (totalPages <= 1) return null;
 
   const locale = await getLocale();
-  const shared = { category, q: query, answered, channel, sort, lead };
+  const shared = { category, q: query, answered, channel, sort, lead, urgent };
   const linkClasses =
     "rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-semibold text-muted hover:border-border-strong hover:text-foreground";
 

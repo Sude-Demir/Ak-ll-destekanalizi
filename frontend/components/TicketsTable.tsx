@@ -151,9 +151,16 @@ export default function TicketsTable({
                       className="shrink-0 bg-accent-soft text-accent"
                     />
                   )}
+                  {ticket.is_urgent && (
+                    <StatusPill
+                      label={t("ticketsTable.urgentBadge")}
+                      className="shrink-0 bg-red-50 text-red-700"
+                    />
+                  )}
                 </div>
                 <div className="truncate text-[12.5px] text-muted">
                   {ticket.customer_name} · {ticket.customer_email}
+                  {ticket.assigned_agent_name && ` · ${ticket.assigned_agent_name}`}
                 </div>
               </Link>
               <div role="cell">

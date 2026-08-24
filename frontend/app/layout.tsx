@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   return {
     // Ürün adı bir marka ismi — dile göre çevrilmiyor, sabit kalıyor.
-    title: "Akıllı Destek Asistanı",
+    title: "supportIQ",
     description: t(locale, "meta.description"),
   };
 }

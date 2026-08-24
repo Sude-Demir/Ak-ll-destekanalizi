@@ -62,6 +62,7 @@ export default async function CategoryFilterBar({
   activeChannel,
   activeSort,
   activeLead,
+  activeUrgent,
 }: {
   categoryCounts: Record<string, number>;
   overallTotal: number;
@@ -71,6 +72,7 @@ export default async function CategoryFilterBar({
   activeChannel: string | null;
   activeSort: string | null;
   activeLead: string | null;
+  activeUrgent: string | null;
 }) {
   const locale = await getLocale();
   const counts = fixedCategoryCounts(categoryCounts, locale);
@@ -80,6 +82,7 @@ export default async function CategoryFilterBar({
     channel: activeChannel,
     sort: activeSort,
     lead: activeLead,
+    urgent: activeUrgent,
   };
 
   return (

@@ -3,8 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import DraftPanel from "@/components/DraftPanel";
+import KbSuggestionPanel from "@/components/KbSuggestionPanel";
+import MessageThread from "@/components/MessageThread";
 import StatusPill from "@/components/StatusPill";
-import { fetchDrafts, fetchTicket, fetchTickets, type Ticket } from "@/lib/api";
+import TicketAssignmentButton from "@/components/TicketAssignmentButton";
+import { fetchDrafts, fetchKbSuggestions, fetchTicket, fetchTicketMessages, fetchTickets, type Ticket } from "@/lib/api";
 import { formatDate, t } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { TICKET_STATUS_LABELS, TICKET_STATUS_STYLES } from "@/lib/ticketStatus";
@@ -27,8 +30,15 @@ export default async function TicketDetailPage({
 
   let ticket;
   let drafts;
+  let kbSuggestions;
+  let messages;
   try {
-    [ticket, drafts] = await Promise.all([fetchTicket(ticketId, token), fetchDrafts(ticketId, token)]);
+    [ticket, drafts, kbSuggestions, messages] = await Promise.all([
+      fetchTicket(ticketId, token),
+      fetchDrafts(ticketId, token),
+      fetchKbSuggestions(ticketId, token),
+      fetchTicketMessages(ticketId, token),
+    ]);
   } catch {
     notFound();
   }
@@ -66,6 +76,9 @@ export default async function TicketDetailPage({
             {ticket.is_lead && (
               <StatusPill label={t(locale, "ticketsTable.leadBadge")} className="bg-accent-soft text-accent" />
             )}
+            {ticket.is_urgent && (
+              <StatusPill label={t(locale, "ticketsTable.urgentBadge")} className="bg-red-50 text-red-700" />
+            )}
             <StatusPill
               label={TICKET_STATUS_LABELS[locale][ticket.status] ?? ticket.status}
               className={TICKET_STATUS_STYLES[ticket.status] ?? "bg-surface-2 text-muted"}
@@ -101,9 +114,17 @@ export default async function TicketDetailPage({
             </dd>
           </div>
         </dl>
+
+        <div className="mt-4 border-t border-border pt-4">
+          <TicketAssignmentButton ticketId={ticket.id} initialAssignedAgentName={ticket.assigned_agent_name} />
+        </div>
       </div>
 
       <DraftPanel ticketId={ticket.id} initialDrafts={drafts} />
+
+      <KbSuggestionPanel ticketId={ticket.id} isAnswered={ticket.is_answered} initialSuggestions={kbSuggestions} />
+
+      <MessageThread ticketId={ticket.id} role="agent" initialMessages={messages} />
 
       {customerHistory.length > 0 && (
         <div className="mt-8 rounded-xl border border-border bg-surface p-5 shadow-sm">

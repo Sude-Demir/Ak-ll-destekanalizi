@@ -13,6 +13,7 @@ export function buildDashboardHref(params: {
   channel?: string | null;
   sort?: string | null;
   lead?: string | null;
+  urgent?: string | null;
   page?: number;
 }): string {
   const search = new URLSearchParams();
@@ -22,6 +23,7 @@ export function buildDashboardHref(params: {
   if (params.channel) search.set("channel", params.channel);
   if (params.sort) search.set("sort", params.sort);
   if (params.lead) search.set("lead", params.lead);
+  if (params.urgent) search.set("urgent", params.urgent);
   if (params.page && params.page > 1) search.set("page", String(params.page));
   const qs = search.toString();
   return qs ? `/dashboard?${qs}` : "/dashboard";

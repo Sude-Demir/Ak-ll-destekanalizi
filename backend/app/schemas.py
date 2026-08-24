@@ -19,7 +19,14 @@ class TicketRead(BaseModel):
     channel: str
     category: str | None
     is_lead: bool = False
+    is_urgent: bool = False
     status: str
+    # Talebi üstlenen temsilci — kimse üstlenmediyse ikisi de None.
+    # assigned_agent_id gerçek bir sütun (Ticket ORM nesnesinden otomatik
+    # gelir); assigned_agent_name ise is_answered gibi ayrıca çözülüp
+    # app.routers.tickets tarafından doldurulur.
+    assigned_agent_id: int | None = None
+    assigned_agent_name: str | None = None
     created_at: datetime.datetime
     updated_at: datetime.datetime
     # Onaylanmış/düzenlenmiş bir taslağı var mı (bkz. app.models.draft_response
@@ -43,10 +50,17 @@ class DraftResponseRead(BaseModel):
     id: int
     ticket_id: int
     draft_text: str
+    # AI'nin ilk ürettiği, hiç değişmeyen metin — draft_text bir temsilci
+    # tarafından düzenlenince ondan ayrışır (bkz. app.models.draft_response).
+    ai_original_text: str
     retrieved_context: list[dict]
     confidence_score: float | None
     used_customer_history: bool = False
     status: str
+    # Müşterinin portalda bu yanıta verdiği hızlı tepki — bkz. MyTicketRead.reaction
+    # ve app.routers.me update_ticket_reaction. Temsilci tarafında da görünür
+    # olsun diye burada da dışa açılıyor (izlenebilirlik).
+    customer_reaction: str | None = None
     created_at: datetime.datetime
     updated_at: datetime.datetime
 
@@ -66,6 +80,60 @@ class DraftStatusUpdate(BaseModel):
     status: Literal["approved", "edited", "rejected"]
     # Sadece status="edited" iken kullanılır: temsilcinin düzenlediği son metin.
     draft_text: str | None = None
+
+
+class TicketMessageRead(BaseModel):
+    """İlk AI destekli yanıttan sonraki bir takip mesajı (bkz.
+    app.models.ticket_message)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    ticket_id: int
+    sender_type: Literal["customer", "agent"]
+    sender_name: str
+    body: str
+    created_at: datetime.datetime
+
+
+class TicketMessageCreate(BaseModel):
+    body: str = Field(min_length=1)
+
+
+class TicketAssignmentUpdate(BaseModel):
+    """Bir temsilcinin talebi üstlenmesi (`claim=true`, atama ARAYAN
+    temsilciye geçer — başkasına atanmış olsa bile devralma serbest, küçük
+    bir ekipte bu yeterli) ya da bırakması (`claim=false`)."""
+
+    claim: bool
+
+
+class KbSuggestionRead(BaseModel):
+    """API üzerinden dışa dönen SSS (FAQ) önerisi temsili (bkz.
+    app.services.kb_suggestion_generation)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    ticket_id: int
+    question: str
+    answer: str
+    category: str
+    intent: str
+    status: str
+    kb_chunk_id: int | None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+
+class KbSuggestionStatusUpdate(BaseModel):
+    """Bir temsilcinin SSS önerisi üzerindeki kararı: onayla (gerçek bir SSS
+    kaydına dönüştür) veya reddet. Onaylamadan önce soru/cevap düzenlenebilir
+    — bkz. DraftStatusUpdate ile aynı desen."""
+
+    status: Literal["approved", "rejected"]
+    question: str | None = None
+    answer: str | None = None
 
 
 class TicketListRead(BaseModel):
@@ -168,8 +236,18 @@ class MyTicketRead(BaseModel):
     body: str
     created_at: datetime.datetime
     answer: str | None
+    # Müşterinin bu yanıta verdiği hızlı tepki — yanıt yoksa (answer=None)
+    # ya da henüz tepki verilmediyse None.
+    reaction: str | None
     company_name: str
     company_slug: str
+
+
+class TicketReactionUpdate(BaseModel):
+    """Müşterinin portaldaki yanıta verdiği hızlı 👍/👎 tepkisi. `None`
+    göndermek mevcut tepkiyi temizler (aynı butona tekrar basmak gibi)."""
+
+    reaction: Literal["up", "down"] | None
 
 
 class AgentInviteCreate(BaseModel):
@@ -234,12 +312,34 @@ class DraftTotals(BaseModel):
         return None if decided == 0 else (self.approved + self.edited) / decided
 
 
+class DraftTrendPoint(DraftTotals):
+    """DraftTotals'ın günlük hâli — bir günde üretilen taslakların durum
+    dağılımı, ortalama güven skoru ve (miras alınan) onay oranı. Zaman
+    içindeki AI performans trendini göstermek için (bkz. app.routers.analytics,
+    CLAUDE.md 'özgün 10 özellik' listesi #9 — 'canlı bir eval' gibi çalışır)."""
+
+    date: datetime.date
+
+
 class DailyTicketCount(BaseModel):
     """Bir günde gelen talep sayısı (bkz. app.routers.analytics — hacim
     grafiği)."""
 
     date: datetime.date
     count: int
+
+
+class KnowledgeGapItem(BaseModel):
+    """Bir kategoride AI'nin ne sıklıkla düşük güvenle/eskalasyona düşerek
+    taslak ürettiğini gösterir — şirketin SSS'inde muhtemelen eksik olan bir
+    konuyu işaret eder (bkz. app.routers.analytics _knowledge_gaps).
+    `sample_subjects`, o kategoride eskale olmuş en yeni birkaç talebin
+    başlığıdır — rapor soyut bir sayı değil, somut örneklerle gelsin diye."""
+
+    category: str
+    escalated_count: int
+    total_count: int
+    sample_subjects: list[str]
 
 
 class AnalyticsRead(BaseModel):
@@ -250,6 +350,7 @@ class AnalyticsRead(BaseModel):
     tickets: TicketTotals
     drafts: DraftTotals
     daily_ticket_counts: list[DailyTicketCount]
+    draft_trend: list[DraftTrendPoint]
 
 
 class InboundEmailPayload(BaseModel):

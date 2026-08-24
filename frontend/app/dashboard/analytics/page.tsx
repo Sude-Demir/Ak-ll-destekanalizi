@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 
 import AnalyticsHero from "@/components/AnalyticsHero";
 import DraftOutcomeChart from "@/components/DraftOutcomeChart";
+import DraftTrendChart from "@/components/DraftTrendChart";
+import KnowledgeGaps from "@/components/KnowledgeGaps";
 import TicketVolumeChart from "@/components/TicketVolumeChart";
-import { fetchAnalytics } from "@/lib/api";
+import { fetchAnalytics, fetchKnowledgeGaps } from "@/lib/api";
 import { t } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 
@@ -14,10 +16,11 @@ export default async function AnalyticsPage() {
   const token = await getToken();
 
   let analytics;
+  let knowledgeGaps;
   let errorMessage: string | null = null;
 
   try {
-    analytics = await fetchAnalytics(token);
+    [analytics, knowledgeGaps] = await Promise.all([fetchAnalytics(token), fetchKnowledgeGaps(token)]);
   } catch (error) {
     // Backend, temsilci olmayan bir kullanıcı için 403 döner (bkz.
     // backend/app/auth.py require_agent) — bu bir hata değil, kişi müşteri
@@ -36,7 +39,7 @@ export default async function AnalyticsPage() {
     );
   }
 
-  if (!analytics) return null;
+  if (!analytics || !knowledgeGaps) return null;
 
   return (
     <>
@@ -45,6 +48,10 @@ export default async function AnalyticsPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <DraftOutcomeChart analytics={analytics} />
           <TicketVolumeChart analytics={analytics} />
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <DraftTrendChart analytics={analytics} />
+          <KnowledgeGaps gaps={knowledgeGaps} />
         </div>
       </main>
     </>

@@ -2,7 +2,9 @@ import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { fetchMyTicket } from "@/lib/api";
+import MessageThread from "@/components/MessageThread";
+import TicketReactionButtons from "@/components/TicketReactionButtons";
+import { fetchMyTicket, fetchMyTicketMessages } from "@/lib/api";
 import { t } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 
@@ -22,8 +24,12 @@ export default async function MyTicketDetailPage({
   const token = await getToken();
 
   let ticket;
+  let messages;
   try {
-    ticket = await fetchMyTicket(ticketId, token);
+    [ticket, messages] = await Promise.all([
+      fetchMyTicket(ticketId, token),
+      fetchMyTicketMessages(ticketId, token),
+    ]);
   } catch {
     // Talep bulunamadı ya da başkasına ait — backend her iki durumda da 404
     // döner (bkz. backend/app/routers/me.py get_my_ticket).
@@ -46,11 +52,14 @@ export default async function MyTicketDetailPage({
               {t(locale, "portalTicketDetail.answerHeading")}
             </span>
             <p className="mt-2 whitespace-pre-wrap text-[14px] text-foreground">{ticket.answer}</p>
+            <TicketReactionButtons ticketId={ticket.id} initialReaction={ticket.reaction} />
           </>
         ) : (
           <p className="text-[14px] text-muted">{t(locale, "portalTicketDetail.pending")}</p>
         )}
       </div>
+
+      <MessageThread ticketId={ticket.id} role="customer" initialMessages={messages} />
     </main>
   );
 }

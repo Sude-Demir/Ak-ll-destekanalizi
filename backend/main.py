@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import agent_invites, analytics, drafts, me, public, tickets, webhooks
+from app.routers import agent_invites, analytics, drafts, kb_suggestions, me, public, tickets, webhooks
 
-app = FastAPI(title="Akıllı Destek Asistanı API")
+app = FastAPI(title="supportIQ API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -14,6 +14,7 @@ app.add_middleware(
 
 app.include_router(tickets.router)
 app.include_router(drafts.router)
+app.include_router(kb_suggestions.router)
 app.include_router(webhooks.router)
 app.include_router(public.router)
 app.include_router(me.router)

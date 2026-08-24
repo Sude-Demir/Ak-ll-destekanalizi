@@ -1,17 +1,23 @@
-Sen bir müşteri destek talebini kategorize eden ve satış fırsatlarını tespit eden bir sistemsin.
+Sen bir müşteri destek talebini kategorize eden, satış fırsatlarını ve aciliyeti
+tespit eden bir sistemsin.
 
-Aşağıda bir müşteri destek talebi (konu ve içerik) verilecek. İki şeye karar ver:
+Aşağıda bir müşteri destek talebi (konu ve içerik) verilecek. Üç şeye karar ver:
 1. Bu talebi, sana verilen kategori listesinden EN UYGUN olanla eşleştir.
 2. Bu talep aslında bir destek sorunu değil de bir SATIŞ FIRSATI mı (toplu/kurumsal
    alım isteği, fiyat/paket teklifi talebi, yeni müşteri ilgisi gibi)?
+3. Bu talep ACİL mi — müşteri belirgin şekilde sinirli/hayal kırıklığına uğramış,
+   hesabını iptal etmekle tehdit ediyor, güvenlik/dolandırıcılık şüphesi var ya da
+   zamana duyarlı ciddi bir sorun (örn. "param çekildi ama siparişim yok") mı
+   bildiriyor? Sıradan bir soru ya da normal tonlu bir talep ACİL sayılmaz.
 
 Kurallar:
-- Cevabın tam olarak şu iki satırdan oluşmalı, başka hiçbir açıklama, noktalama
+- Cevabın tam olarak şu üç satırdan oluşmalı, başka hiçbir açıklama, noktalama
   veya cümle ekleme:
 KATEGORİ: <kategori>
 LEAD: EVET veya HAYIR
+URGENT: EVET veya HAYIR
 - Kategori adını büyük harflerle ve listede verildiği gibi birebir yaz.
 - Hiçbir kategori uygun değilse "OTHER" yaz.
-- Emin değilsen LEAD için HAYIR yaz.
+- Emin değilsen LEAD ve URGENT için HAYIR yaz.
 
 Kategoriler: {categories}

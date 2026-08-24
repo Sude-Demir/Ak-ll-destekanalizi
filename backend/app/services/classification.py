@@ -1,15 +1,16 @@
-"""Bir müşteri destek talebini önceden tanımlı kategori listesine göre sınıflandırır
-ve aynı çağrıda talebin aslında bir satış fırsatı (lead) olup olmadığını tespit eder.
+"""Bir müşteri destek talebini önceden tanımlı kategori listesine göre sınıflandırır;
+aynı çağrıda talebin bir satış fırsatı (lead) olup olmadığını VE acil olup olmadığını
+(sinirli/tehdit eden ton, zamana duyarlı ciddi bir sorun) tespit eder.
 
 Kategori listesi, bilgi tabanımızdaki (knowledge_base_chunks) Bitext kategorileriyle
 birebir aynı tutulur; böylece bir talep sınıflandırıldığında, retrieval'ın aynı
 kategori altındaki SSS parçalarını bulması daha tutarlı olur.
 
-Lead tespiti neden ayrı bir servis/LLM çağrısı DEĞİL: Gemini'nin ücretsiz planı
-günlük sadece 20 istek veriyor (bkz. CLAUDE.md), bu proje bu kotayı defalarca
+Lead/aciliyet tespiti neden ayrı bir servis/LLM çağrısı DEĞİL: Gemini'nin ücretsiz
+planı günlük sadece 20 istek veriyor (bkz. CLAUDE.md), bu proje bu kotayı defalarca
 zorladı. Sınıflandırma zaten talebin tamamını okuyup bir yargıya varıyor; aynı
-çağrıya "bu bir satış fırsatı mı" sorusunu eklemek, talep başına ikinci bir
-LLM çağrısına göre kotayı iki katına çıkarmaz.
+çağrıya bu iki EVET/HAYIR sorusunu eklemek, talep başına ek LLM çağrısına göre
+kotayı katlamaz.
 """
 
 from dataclasses import dataclass
@@ -41,16 +42,20 @@ FALLBACK_CATEGORY = "OTHER"
 class ClassificationResult:
     category: str
     is_lead: bool
+    is_urgent: bool = False
 
 
 def _parse_single_response(raw_response: str) -> ClassificationResult:
-    """`KATEGORİ: <kategori>` / `LEAD: EVET|HAYIR` biçimindeki iki satırı ayrıştırır.
-    Etiketler `startswith("KATEGOR")`/`startswith("LEAD")` ile eşleştiriliyor —
-    Python'un `.upper()`'ı Türkçe'deki noktalı büyük İ'yi üretmediği için ("kategori"
-    -> "KATEGORI", dolayısıyla asla "KATEGORİ" değil), tam eşleşme aramak yerine
-    İ harfi içermeyen bir önek kullanmak bu tuzağı baştan eler."""
+    """`KATEGORİ: <kategori>` / `LEAD: EVET|HAYIR` / `URGENT: EVET|HAYIR` biçimindeki
+    satırları ayrıştırır. Etiketler `startswith("KATEGOR")`/`startswith("LEAD")`/
+    `startswith("URGENT")` ile eşleştiriliyor — Python'un `.upper()`'ı Türkçe'deki
+    noktalı büyük İ'yi üretmediği için ("kategori" -> "KATEGORI", dolayısıyla asla
+    "KATEGORİ" değil), tam eşleşme aramak yerine İ harfi içermeyen bir önek
+    kullanmak bu tuzağı baştan eler (URGENT zaten İ içermeyen bir İngilizce
+    kelime olduğu için LEAD gibi doğrudan kullanılabiliyor)."""
     category = FALLBACK_CATEGORY
     is_lead = False
+    is_urgent = False
     for line in raw_response.strip().splitlines():
         line = line.strip()
         if ":" not in line:
@@ -63,7 +68,9 @@ def _parse_single_response(raw_response: str) -> ClassificationResult:
             category = candidate if candidate in CATEGORIES else FALLBACK_CATEGORY
         elif label.startswith("LEAD"):
             is_lead = value.upper() == "EVET"
-    return ClassificationResult(category=category, is_lead=is_lead)
+        elif label.startswith("URGENT"):
+            is_urgent = value.upper() == "EVET"
+    return ClassificationResult(category=category, is_lead=is_lead, is_urgent=is_urgent)
 
 
 def classify_ticket(subject: str, body: str) -> ClassificationResult:
@@ -111,16 +118,18 @@ def classify_tickets_batch(tickets: list[tuple[int, str, str]]) -> dict[int, Cla
             continue
         if not (1 <= index <= len(tickets)):
             continue
-        category_part, _, lead_part = rest.partition("|")
+        category_part, _, remainder = rest.partition("|")
+        lead_part, _, urgent_part = remainder.partition("|")
         category = category_part.strip().upper()
         parsed_by_index[index] = ClassificationResult(
             category=category if category in CATEGORIES else FALLBACK_CATEGORY,
             is_lead=lead_part.strip().upper() == "EVET",
+            is_urgent=urgent_part.strip().upper() == "EVET",
         )
 
     results: dict[int, ClassificationResult] = {}
     for i, (ticket_id, _subject, _body) in enumerate(tickets, start=1):
         results[ticket_id] = parsed_by_index.get(
-            i, ClassificationResult(category=FALLBACK_CATEGORY, is_lead=False)
+            i, ClassificationResult(category=FALLBACK_CATEGORY, is_lead=False, is_urgent=False)
         )
     return results

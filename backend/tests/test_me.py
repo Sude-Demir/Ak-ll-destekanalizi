@@ -210,10 +210,111 @@ def test_get_my_ticket_surfaces_approved_answer(mock_db, as_user):
             created_at=datetime.datetime.now(datetime.timezone.utc),
         ),
     )
-    mock_db.execute.return_value.scalars.return_value.first.return_value = "Merhaba, siparişiniz yola çıktı."
+    mock_db.execute.return_value.scalars.return_value.first.return_value = SimpleNamespace(
+        draft_text="Merhaba, siparişiniz yola çıktı.", customer_reaction=None
+    )
 
     client = TestClient(app)
     res = client.get("/me/tickets/5")
 
     assert res.status_code == 200
     assert res.json()["answer"] == "Merhaba, siparişiniz yola çıktı."
+    assert res.json()["reaction"] is None
+
+
+def _own_ticket(**overrides):
+    base = dict(
+        id=5,
+        company_id=1,
+        submitted_by_user_id="user_x",
+        subject="Kargo gecikti",
+        body="Siparişim gelmedi.",
+        created_at=datetime.datetime.now(datetime.timezone.utc),
+    )
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+def test_update_ticket_reaction_404s_for_someone_elses_ticket(mock_db, as_user):
+    as_user("user_x")
+    _mock_get(mock_db, ticket=SimpleNamespace(id=5, submitted_by_user_id="someone_else"))
+
+    client = TestClient(app)
+    res = client.patch("/me/tickets/5/reaction", json={"reaction": "up"})
+
+    assert res.status_code == 404
+
+
+def test_update_ticket_reaction_requires_answered_draft(mock_db, as_user):
+    as_user("user_x")
+    _mock_get(mock_db, ticket=_own_ticket())
+    mock_db.execute.return_value.scalars.return_value.first.return_value = None
+
+    client = TestClient(app)
+    res = client.patch("/me/tickets/5/reaction", json={"reaction": "up"})
+
+    assert res.status_code == 400
+
+
+def test_update_ticket_reaction_sets_customer_reaction_on_latest_draft(mock_db, as_user):
+    as_user("user_x")
+    _mock_get(mock_db, ticket=_own_ticket())
+    draft = SimpleNamespace(draft_text="Merhaba, siparişiniz yola çıktı.", customer_reaction=None)
+    mock_db.execute.return_value.scalars.return_value.first.return_value = draft
+
+    client = TestClient(app)
+    res = client.patch("/me/tickets/5/reaction", json={"reaction": "up"})
+
+    assert res.status_code == 200
+    assert res.json()["reaction"] == "up"
+    assert draft.customer_reaction == "up"
+
+
+def test_update_ticket_reaction_can_clear_with_null(mock_db, as_user):
+    as_user("user_x")
+    _mock_get(mock_db, ticket=_own_ticket())
+    draft = SimpleNamespace(draft_text="Merhaba, siparişiniz yola çıktı.", customer_reaction="up")
+    mock_db.execute.return_value.scalars.return_value.first.return_value = draft
+
+    client = TestClient(app)
+    res = client.patch("/me/tickets/5/reaction", json={"reaction": None})
+
+    assert res.status_code == 200
+    assert res.json()["reaction"] is None
+    assert draft.customer_reaction is None
+
+
+def test_list_my_ticket_messages_404s_for_someone_elses_ticket(mock_db, as_user):
+    as_user("user_x")
+    _mock_get(mock_db, ticket=SimpleNamespace(id=5, submitted_by_user_id="someone_else"))
+
+    client = TestClient(app)
+    res = client.get("/me/tickets/5/messages")
+
+    assert res.status_code == 404
+
+
+def test_create_my_ticket_message_uses_clerk_profile_not_client_input(mock_db, as_user, monkeypatch):
+    as_user("user_x")
+    _mock_get(mock_db, ticket=_own_ticket())
+    monkeypatch.setattr(
+        "app.routers.me.fetch_user_profile", lambda clerk_user_id: ("Ayşe Yılmaz", "ayse@example.com")
+    )
+
+    def _refresh(obj):
+        obj.id = 1
+        obj.created_at = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+
+    mock_db.refresh.side_effect = _refresh
+
+    client = TestClient(app)
+    res = client.post("/me/tickets/5/messages", json={"body": "Bir şey daha eklemek istiyorum."})
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["sender_type"] == "customer"
+    assert body["sender_name"] == "Ayşe Yılmaz"
+    assert body["body"] == "Bir şey daha eklemek istiyorum."
+    created = mock_db.add.call_args[0][0]
+    assert created.ticket_id == 5
+    assert created.sender_type == "customer"

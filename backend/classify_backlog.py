@@ -81,6 +81,7 @@ def run_backfill(db: Session, limit: int | None = None) -> None:
             classification = results[ticket.id]
             ticket.category = classification.category
             ticket.is_lead = classification.is_lead
+            ticket.is_urgent = classification.is_urgent
             done_ids.add(ticket.id)
         db.commit()
         _save_done_ids(done_ids)

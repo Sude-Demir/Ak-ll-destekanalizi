@@ -46,6 +46,7 @@ def receive_inbound_email(payload: InboundEmailPayload, db: Session = Depends(ge
         body=payload.TextBody,
         channel="email",
         is_lead=False,
+        is_urgent=False,
     )
     db.add(ticket)
     db.commit()
