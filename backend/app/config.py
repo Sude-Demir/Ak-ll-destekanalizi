@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     # Webhook URL'sine gömülür: https://<user>:<pass>@.../webhooks/inbound-email
     webhook_username: str | None = None
     webhook_password: str | None = None
+    # Yapılandırılırsa, yeni bir lead/acil talep tespit edildiğinde buraya da
+    # bir Slack mesajı gönderilir (bkz. app.services.slack_notify). Boşsa
+    # bu adım sessizce atlanır — in-app bildirim tek başına yeterli.
+    slack_webhook_url: str | None = None
 
     model_config = SettingsConfigDict(env_file=ROOT_ENV_FILE, env_file_encoding="utf-8")
 

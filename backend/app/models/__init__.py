@@ -5,6 +5,7 @@ from app.models.draft_response import DraftResponse
 from app.models.eval_example import EvalExample
 from app.models.kb_suggestion import KbSuggestion
 from app.models.knowledge_base_chunk import KnowledgeBaseChunk
+from app.models.notification import Notification
 from app.models.ticket import Ticket
 from app.models.ticket_message import TicketMessage
 
@@ -16,6 +17,7 @@ __all__ = [
     "EvalExample",
     "KbSuggestion",
     "KnowledgeBaseChunk",
+    "Notification",
     "Ticket",
     "TicketMessage",
 ]

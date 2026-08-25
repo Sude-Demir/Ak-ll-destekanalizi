@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_agent
 from app.db.database import get_db
-from app.models import Agent, DraftResponse, Ticket
+from app.models import Agent, DraftResponse, Notification, Ticket
 from app.schemas import (
     BulkApproveRequest,
     BulkApproveResult,
@@ -13,8 +13,9 @@ from app.schemas import (
     DraftResponseRead,
     DraftStatusUpdate,
 )
-from app.services.classification import classify_ticket
+from app.services.classification import ClassificationResult, classify_ticket
 from app.services.draft_generation import generate_draft
+from app.services.slack_notify import send_slack_alert
 
 router = APIRouter(prefix="/tickets", tags=["drafts"], dependencies=[Depends(require_agent)])
 
@@ -26,6 +27,27 @@ def _get_own_ticket(ticket_id: int, agent: Agent, db: Session) -> Ticket:
     if ticket is None or ticket.company_id != agent.company_id:
         raise HTTPException(status_code=404, detail="Talep bulunamadı")
     return ticket
+
+
+def _notify_if_flagged(ticket: Ticket, classification: ClassificationResult, db: Session) -> None:
+    """Sınıflandırma bir talebi lead ve/veya acil olarak işaretlerse in-app
+    bildirim (+ yapılandırılmışsa Slack) oluşturur (bkz. CLAUDE.md 'özgün 10
+    özellik' listesi #10). Sadece bir talebin İLK sınıflandırıldığı anda
+    çağrılır (bkz. create_draft/bulk_generate_drafts'taki
+    `if ticket.category is None` kapısı) — aksi halde aynı talep için tekrar
+    tekrar bildirim üretilirdi."""
+    kinds = []
+    if classification.is_urgent:
+        kinds.append("urgent")
+        db.add(Notification(company_id=ticket.company_id, ticket_id=ticket.id, type="urgent"))
+    if classification.is_lead:
+        kinds.append("lead")
+        db.add(Notification(company_id=ticket.company_id, ticket_id=ticket.id, type="lead"))
+
+    if kinds:
+        labels = {"urgent": "acil talep", "lead": "potansiyel satış fırsatı"}
+        summary = " + ".join(labels[kind] for kind in kinds)
+        send_slack_alert(f"[supportIQ] Yeni {summary}: {ticket.subject}")
 
 
 @router.post("/{ticket_id}/draft", response_model=DraftResponseRead)
@@ -46,6 +68,7 @@ def create_draft(
         ticket.category = classification.category
         ticket.is_lead = classification.is_lead
         ticket.is_urgent = classification.is_urgent
+        _notify_if_flagged(ticket, classification, db)
 
     result = generate_draft(ticket, db)
 
@@ -192,6 +215,7 @@ def bulk_generate_drafts(
                 ticket.category = classification.category
                 ticket.is_lead = classification.is_lead
                 ticket.is_urgent = classification.is_urgent
+                _notify_if_flagged(ticket, classification, db)
             result = generate_draft(ticket, db)
         except genai_errors.APIError:
             failed.append(ticket_id)

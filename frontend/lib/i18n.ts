@@ -74,6 +74,13 @@ const tr = {
   // burada yeniden kullanılır.
   "sidebar.tickets": "Talepler",
 
+  // Bildirim zili (NotificationBell) — yeni lead/acil talep uyarıları
+  "notifications.bellAriaLabel": "Bildirimler",
+  "notifications.heading": "Bildirimler",
+  "notifications.empty": "Henüz bildirim yok.",
+  "notifications.leadMessage": "Yeni potansiyel satış: {subject}",
+  "notifications.urgentMessage": "Yeni acil talep: {subject}",
+
   // Analitik sayfası (dashboard/analytics)
   "analytics.title": "Analitik",
   "analytics.loadError": "Analitik veriler yüklenemedi. Lütfen sayfayı yenileyin.",
@@ -351,6 +358,12 @@ const en: Record<keyof typeof tr, string> = {
   "pagination.pageOf": "Page {page} of {totalPages}",
 
   "sidebar.tickets": "Tickets",
+
+  "notifications.bellAriaLabel": "Notifications",
+  "notifications.heading": "Notifications",
+  "notifications.empty": "No notifications yet.",
+  "notifications.leadMessage": "New sales lead: {subject}",
+  "notifications.urgentMessage": "New urgent ticket: {subject}",
 
   "analytics.title": "Analytics",
   "analytics.loadError": "Couldn't load analytics data. Please refresh the page.",

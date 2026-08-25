@@ -597,6 +597,41 @@ export async function fetchKnowledgeGaps(token: string | null): Promise<Knowledg
   return res.json();
 }
 
+// Bir talep lead/acil olarak işaretlendiğinde oluşan in-app bildirim (bkz.
+// backend/app/models/notification.py, CLAUDE.md "özgün 10 özellik" listesi
+// #10). Belirli bir temsilciye değil, şirkete ait.
+export interface Notification {
+  id: number;
+  ticket_id: number;
+  type: "lead" | "urgent";
+  ticket_subject: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+export async function fetchNotifications(token: string | null): Promise<Notification[]> {
+  const res = await fetch(`${API_BASE_URL}/notifications`, { cache: "no-store", headers: authHeaders(token) });
+
+  if (!res.ok) {
+    throw new Error(`Bildirimler alınamadı (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+export async function markAllNotificationsRead(token: string | null): Promise<Notification[]> {
+  const res = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Bildirimler okundu işaretlenemedi (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
 export async function updateDraftStatus(
   ticketId: number,
   draftId: number,

@@ -329,6 +329,22 @@ class DailyTicketCount(BaseModel):
     count: int
 
 
+class NotificationRead(BaseModel):
+    """Bir lead/acil talep tespiti in-app bildirimi (bkz. app.models.notification,
+    CLAUDE.md 'özgün 10 özellik' listesi #10). `ticket_subject` gerçek bir
+    Notification sütunu değil — TicketRead.assigned_agent_name ile aynı
+    desende, app.routers.notifications tarafından bir join'le doldurulur."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    ticket_id: int
+    type: Literal["lead", "urgent"]
+    ticket_subject: str = ""
+    created_at: datetime.datetime
+    read_at: datetime.datetime | None
+
+
 class KnowledgeGapItem(BaseModel):
     """Bir kategoride AI'nin ne sıklıkla düşük güvenle/eskalasyona düşerek
     taslak ürettiğini gösterir — şirketin SSS'inde muhtemelen eksik olan bir

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import agent_invites, analytics, drafts, kb_suggestions, me, public, tickets, webhooks
+from app.routers import agent_invites, analytics, drafts, kb_suggestions, me, notifications, public, tickets, webhooks
 
 app = FastAPI(title="supportIQ API")
 
@@ -20,6 +20,7 @@ app.include_router(public.router)
 app.include_router(me.router)
 app.include_router(agent_invites.router)
 app.include_router(analytics.router)
+app.include_router(notifications.router)
 
 
 @app.get("/health")
