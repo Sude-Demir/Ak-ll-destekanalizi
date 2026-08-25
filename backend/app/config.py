@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     # bir Slack mesajı gönderilir (bkz. app.services.slack_notify). Boşsa
     # bu adım sessizce atlanır — in-app bildirim tek başına yeterli.
     slack_webhook_url: str | None = None
+    # Yapılandırılırsa, lead olarak işaretlenen talepler HubSpot CRM'e
+    # senkronize edilir (bkz. app.services.hubspot_sync). Boşsa bu adım
+    # sessizce atlanır. HubSpot'ta bir "Private App" oluşturup buradan alınan
+    # access token'dır (eski "API Key" yöntemi HubSpot tarafından kaldırıldı).
+    hubspot_access_token: str | None = None
 
     model_config = SettingsConfigDict(env_file=ROOT_ENV_FILE, env_file_encoding="utf-8")
 

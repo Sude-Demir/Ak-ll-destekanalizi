@@ -15,6 +15,7 @@ from app.schemas import (
 )
 from app.services.classification import ClassificationResult, classify_ticket
 from app.services.draft_generation import generate_draft
+from app.services.hubspot_sync import sync_lead_to_hubspot
 from app.services.slack_notify import send_slack_alert
 
 router = APIRouter(prefix="/tickets", tags=["drafts"], dependencies=[Depends(require_agent)])
@@ -50,6 +51,15 @@ def _notify_if_flagged(ticket: Ticket, classification: ClassificationResult, db:
         send_slack_alert(f"[supportIQ] Yeni {summary}: {ticket.subject}")
 
 
+def _sync_lead_to_crm_if_flagged(ticket: Ticket, classification: ClassificationResult) -> None:
+    """Talep bir satış fırsatı (lead) olarak işaretlenirse HubSpot CRM'e
+    senkronize eder (bkz. CLAUDE.md Hafta 6 son fikri 'CRM entegrasyonu',
+    app.services.hubspot_sync — best-effort, HUBSPOT_ACCESS_TOKEN ayarlı
+    değilse ya da API hatası olursa sessizce atlanır)."""
+    if classification.is_lead:
+        sync_lead_to_hubspot(ticket.customer_name, ticket.customer_email, ticket.subject)
+
+
 @router.post("/{ticket_id}/draft", response_model=DraftResponseRead)
 def create_draft(
     ticket_id: int, agent: Agent = Depends(require_agent), db: Session = Depends(get_db)
@@ -69,6 +79,7 @@ def create_draft(
         ticket.is_lead = classification.is_lead
         ticket.is_urgent = classification.is_urgent
         _notify_if_flagged(ticket, classification, db)
+        _sync_lead_to_crm_if_flagged(ticket, classification)
 
     result = generate_draft(ticket, db)
 
@@ -216,6 +227,7 @@ def bulk_generate_drafts(
                 ticket.is_lead = classification.is_lead
                 ticket.is_urgent = classification.is_urgent
                 _notify_if_flagged(ticket, classification, db)
+                _sync_lead_to_crm_if_flagged(ticket, classification)
             result = generate_draft(ticket, db)
         except genai_errors.APIError:
             failed.append(ticket_id)

@@ -176,7 +176,15 @@ def test_mark_all_read_only_touches_own_company_unread(db_session, two_companies
 
 
 def _ticket_row(**overrides):
-    base = dict(id=1, company_id=10, subject="Konu", body="Gövde", category=None)
+    base = dict(
+        id=1,
+        company_id=10,
+        subject="Konu",
+        body="Gövde",
+        category=None,
+        customer_name="Test Müşteri",
+        customer_email="test@example.com",
+    )
     base.update(overrides)
     return SimpleNamespace(**base)
 
@@ -216,6 +224,7 @@ def test_create_draft_notifies_when_classification_flags_lead_and_urgent(mock_db
         patch("app.routers.drafts.classify_ticket", return_value=classification),
         patch("app.routers.drafts.generate_draft", return_value=_draft_result()),
         patch("app.routers.drafts.send_slack_alert") as mock_slack,
+        patch("app.routers.drafts.sync_lead_to_hubspot"),
     ):
         client = TestClient(app)
         res = client.post("/tickets/1/draft")
